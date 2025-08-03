@@ -1,0 +1,45 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "neuron-game"
+authors = [{ name = "Dimitri RODARIE", email = "dimitri.rodarie@unipv.it" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
+requires-python = ">=3.10,<4"
+description = "Small game to simulate point-neuron activity"
+version = "0.1.0"
+dependencies = [
+    "matplotlib>=3.10.5",
+    "numpy>=2.2.6",
+]
+
+[project.optional-dependencies]
+dev = [ "pre-commit~=3.5", "ruff>=0.8.2" ]
+
+[project.urls]
+Home = "https://github.com/drodarie/neuron-game"
+"Bug Tracker" = "https://github.com/dbbs-lab/neuron-game/issues/"
+"Source Code" = "https://github.com/dbbs-lab/neuron-game/"
+
+[tool.ruff]
+exclude = [ ".ruff_cache", ".svn", ".tox", ".venv", "dist" ]
+line-length = 100
+indent-width = 4
+
+  [tool.ruff.format]
+  quote-style = "double"
+  indent-style = "space"
+  skip-magic-trailing-comma = false
+  line-ending = "auto"
+  docstring-code-format = true
+  docstring-code-line-length = 90
+
+  [tool.ruff.lint]
+  select = [ "E", "F", "UP", "B", "SIM", "I" ]
+  ignore = [ ]
+  fixable = [ "ALL" ]
+  unfixable = [ ]
+
