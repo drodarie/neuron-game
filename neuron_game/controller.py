@@ -1,5 +1,3 @@
-import threading
-import time
 from tkinter import RAISED, RIDGE, SUNKEN, Button, Frame
 
 from neuron_game.display import PlotDisplay
@@ -43,33 +41,30 @@ class NeuronController:
         self.inh_button.grid(column=1, row=0, padx=10, pady=10, sticky="w")
         self.inhibitory_weight = inhibitory_weight
         self.syn_delay = syn_delay
-        self.pressed = False
+        self.pressed = None
 
     def update(self, dt: float):
         self.current_time += dt
         spiked = self.neuron.update(self.current_time)
         self.plotView.update(self.current_time, self.neuron.V_m, spike=spiked)
+        if self.pressed is not None:
+            self._delay_button_raise(self.pressed)
 
     def _delay_button_raise(self, button):
-        time.sleep(0.1)
         button.config(relief=RAISED)
-        self.pressed = False
+        self.pressed = None
 
     def excitatory_input(self):
-        if not self.pressed:
-            self.pressed = True
+        if self.pressed is None:
+            self.pressed = self.exc_button
             self.exc_button.config(relief=SUNKEN)
             self.receive_spike(self.excitatory_weight, self.syn_delay)
-            thread = threading.Thread(target=self._delay_button_raise, args=(self.exc_button,))
-            thread.start()
 
     def inhibitory_input(self):
-        if not self.pressed:
-            self.pressed = True
+        if self.pressed is None:
+            self.pressed = self.inh_button
             self.inh_button.config(relief=SUNKEN)
             self.receive_spike(self.inhibitory_weight, self.syn_delay)
-            thread = threading.Thread(target=self._delay_button_raise, args=(self.inh_button,))
-            thread.start()
 
     def receive_spike(self, weight: float, delay: float):
         self.neuron.receive_spike(self.current_time, weight, delay)
