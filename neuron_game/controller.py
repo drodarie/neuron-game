@@ -47,8 +47,8 @@ class NeuronController:
 
     def update(self, dt: float):
         self.current_time += dt
-        self.neuron.update(self.current_time)
-        self.plotView.update(self.current_time, self.neuron.V_m)
+        spiked = self.neuron.update(self.current_time)
+        self.plotView.update(self.current_time, self.neuron.V_m, spike=spiked)
 
     def _delay_button_raise(self, button):
         time.sleep(0.1)

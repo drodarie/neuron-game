@@ -14,14 +14,19 @@ class PlotDisplay:
         dt: float = 0.1,
         ylims: list[float] = None,
         color="blue",
+        ylabel="Membrane potential (mV)",
+        title="Neuron",
     ):
         self.points_displayed = points_displayed
         self.dt = dt
         self.x = np.arange(-self.points_displayed * dt, -dt + 1e-5, dt).tolist()
         self.y = [origin_value] * self.points_displayed
         self.figure, self.ax = plt.subplots(1, 1, figsize=(10, 4))
-        (self.line,) = self.ax.plot(self.x, self.y, color=color)
+        (self.line,) = self.ax.plot(self.x, self.y, color=color, linewidth=2.0)
         self.ax.set_xlim([self.x[0], self.x[-1] + self.points_displayed * dt])
+        self.ax.set_xlabel("Time (ms)")
+        self.ax.set_ylabel(ylabel)
+        self.ax.set_title(title)
         if ylims is not None:
             self.ax.set_ylim(ylims)
         self.frame = Frame(placeholder)
@@ -45,8 +50,7 @@ class PlotDisplay:
         self.line.set_xdata(diplayed_x)
         self.line.set_ydata(self.y[buffer_idx + 1 :] + self.y[: buffer_idx + 1])
         if spike:
-            ylims = self.ax.get_ylim()
-            line = self.ax.axvline(x=t, ymin=ylims[0], ymax=ylims[1], linewidth=0.5, color="red")
+            line = self.ax.axvline(x=t, linewidth=2.0, color="red")
             self.spikes.append((t, line))
         self.ax.set_xlim([diplayed_x[0], diplayed_x[-1] + self.points_displayed * self.dt])
         if len(self.spikes) > 0 and self.spikes[0][0] < diplayed_x[0]:

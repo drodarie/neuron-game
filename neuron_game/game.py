@@ -20,8 +20,8 @@ class NeuronGame:
 
         self.neurons = [IAFCondAlpha() for _ in range(nb_player)]
         self.canvases = [
-            PlotDisplay(self.root, origin_value=neuron.V_m, ylims=[-85, -40])
-            for neuron in self.neurons
+            PlotDisplay(self.root, origin_value=neuron.V_m, ylims=[-85, -40], title=f"Neuron {i}")
+            for i, neuron in enumerate(self.neurons)
         ]
         self.controller = GameController(self.canvases, self.neurons)
         self.controller.grid()
