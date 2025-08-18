@@ -12,7 +12,7 @@ class NeuronController:
         current_time: float = 0.0,
         excitatory_weight: float = 100.0,
         inhibitory_weight: float = -100.0,
-        syn_delay: float = 2.0,
+        syn_delay: float = 0.1,
     ):
         assert syn_delay > 0
         assert inhibitory_weight < 0
@@ -25,7 +25,7 @@ class NeuronController:
         self.exc_button = Button(
             self.controllerView,
             padx=6,
-            bg="blue",
+            bg="#add8e6",
             text="Excitatory Input",
             command=self.excitatory_input,
         )
@@ -34,7 +34,7 @@ class NeuronController:
         self.inh_button = Button(
             self.controllerView,
             padx=6,
-            bg="red",
+            bg="#f1807e",
             text="Inhibitory Input",
             command=self.inhibitory_input,
         )
@@ -86,12 +86,17 @@ class NeuronController:
         self.controllerView.columnconfigure(0, weight=1)
 
 
+CONTROLS = [["a", "d"], ["j", "l"]]
+
+
 class GameController:
     def __init__(self, views: list[PlotDisplay], neurons: list[IAFCondAlpha]):
+        assert len(views) > 0
         assert len(views) == len(neurons)
+        assert len(views) <= len(CONTROLS)
         self.current_time = 0
         self.dt = 0.1
-        self.delays = [2.0] * len(neurons)
+        self.delays = [0.1] * len(neurons)
         for neuron, delay in zip(neurons, self.delays, strict=False):
             neuron.dt = self.dt
             neuron.init_buffers(delay)
@@ -100,6 +105,7 @@ class GameController:
             NeuronController(neuron, view, excitatory_weight=weight, inhibitory_weight=-weight)
             for neuron, view, weight in zip(neurons, views, self.weights, strict=False)
         ]
+        self.keys = [CONTROLS[i] for i in range(len(views))]
 
     def update(self):
         for controller in self.controllers:
@@ -109,3 +115,12 @@ class GameController:
     def grid(self):
         for i, controller in enumerate(self.controllers):
             controller.grid(row=0, column=i)
+
+    def _keystroke(self, event):
+        for i, keys in enumerate(self.keys):
+            if event.char.lower() == keys[0]:
+                self.controllers[i].excitatory_input()
+                break
+            elif event.char.lower() == keys[1]:
+                self.controllers[i].inhibitory_input()
+                break

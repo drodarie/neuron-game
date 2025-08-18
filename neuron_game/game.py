@@ -24,9 +24,10 @@ class NeuronGame:
             for i, neuron in enumerate(self.neurons)
         ]
         self.controller = GameController(self.canvases, self.neurons)
+        self.root.bind("<Key>", self.controller._keystroke)
         self.controller.grid()
         self.update()
         self.root.mainloop()
 
 
-NeuronGame(1)
+NeuronGame(2)

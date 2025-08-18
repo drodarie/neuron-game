@@ -9,7 +9,7 @@ class IAFCondAlpha:
             "E_L": -70.0,
             "g_L": 16.667,
             "I_e": 0.0,
-            "t_ref": 4.0,
+            "t_ref": 1.0,
             "tau_syn_ex": 0.2,
             "tau_syn_in": 2.0,
             "E_ex": 0.0,
