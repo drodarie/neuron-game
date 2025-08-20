@@ -1,7 +1,59 @@
-from tkinter import END, RAISED, RIDGE, SUNKEN, Button, Frame, Text
+from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label
 
 from neuron_game.display import PlotDisplay
 from neuron_game.iaf_cond_alpha import IAFCondAlpha
+
+
+class InputController:
+    def __init__(self, root, button_text, color, column, weight, delay, observer):
+        self.pressed = False
+        self.wait_for_key = False
+        self.stim_button = Button(
+            root,
+            padx=6,
+            bg=color,
+            text=button_text,
+            command=self.stim_input,
+        )
+        sticky = "nw" if column == 0 else "ne"
+        self.stim_button.grid(column=column, row=0, padx=10, pady=10, sticky=sticky)
+        self.control_button = Button(
+            root,
+            padx=6,
+            bg=color,
+            text="Add control",
+            command=self.add_control,
+        )
+        self.control_button.grid(column=column, row=1, padx=10, pady=10, sticky=sticky)
+        self.text = Label(root, width=24, height=3, anchor=sticky, justify=LEFT)
+        self.text.grid(column=column, row=2, padx=10, sticky=sticky)
+        self.weight = weight
+        self.delay = delay
+        self.observer = observer
+        self.keys = []
+
+    def stim_input(self):
+        if not self.pressed:
+            self.pressed = True
+            self.stim_button.config(relief=SUNKEN)
+            self.observer.receive_spike(self.weight, self.delay)
+
+    def add_key(self, key):
+        self.keys.append(key)
+        self.text.config(text=", ".join(self.keys))
+        self.end_wait_for_key()
+
+    def end_wait_for_key(self):
+        self.control_button.config(relief=RAISED)
+        self.wait_for_key = False
+
+    def add_control(self):
+        self.wait_for_key = True
+        self.control_button.config(relief=SUNKEN)
+
+    def _delay_button_raise(self):
+        self.stim_button.config(relief=RAISED)
+        self.pressed = False
 
 
 class NeuronController:
@@ -21,95 +73,44 @@ class NeuronController:
         self.neuron = neuron
         self.plotView = view
         self.controllerView = Frame(view.frame, relief=RIDGE, borderwidth=2)
-
-        self.exc_button = Button(
-            self.controllerView,
-            padx=6,
-            bg="#add8e6",
-            text="Excitatory Input",
-            command=self.excitatory_input,
-        )
-        self.exc_button.grid(column=0, row=0, padx=10, pady=10, sticky="nw")
-        self.excitatory_weight = excitatory_weight
-        self.inh_button = Button(
-            self.controllerView,
-            padx=6,
-            bg="#f1807e",
-            text="Inhibitory Input",
-            command=self.inhibitory_input,
-        )
-        self.inh_button.grid(column=1, row=0, padx=10, pady=10, sticky="ne")
-        self.left_control_button = Button(
-            self.controllerView,
-            padx=6,
-            bg="#add8e6",
-            text="Add exc. control",
-            command=self.add_exc_control,
-        )
-        self.left_control_button.grid(column=0, row=1, padx=10, pady=10, sticky="nw")
-        self.right_control_button = Button(
-            self.controllerView,
-            padx=6,
-            bg="#f1807e",
-            text="Add inh. control",
-            command=self.add_inh_control,
-        )
-        self.right_control_button.grid(column=1, row=1, padx=10, pady=10, sticky="ne")
-        self.texts = [Text(self.controllerView, width=24, height=3) for _ in range(2)]
-        self.texts[0].grid(column=0, row=2, padx=10, sticky="nw")
-        self.texts[1].grid(column=1, row=2, padx=10, sticky="ne")
-        self.inhibitory_weight = inhibitory_weight
-        self.syn_delay = syn_delay
-        self.pressed = None
-        self.keys = [[], []]
+        self.stim_controllers = [
+            InputController(self.controllerView, f"{text} Input", color, i, weight, syn_delay, self)
+            for i, (text, color, weight) in enumerate(
+                zip(
+                    ["Excitatory", "Inhibitory"],
+                    ["#add8e6", "#f1807e"],
+                    [excitatory_weight, inhibitory_weight],
+                    strict=False,
+                )
+            )
+        ]
         self.wait_for_key = -1
 
     def update(self, dt: float):
         self.current_time += dt
         spiked = self.neuron.update(self.current_time)
         self.plotView.update(self.current_time, self.neuron.V_m, spike=spiked)
-        if self.pressed is not None:
-            self._delay_button_raise(self.pressed)
-
-    def _delay_button_raise(self, button):
-        button.config(relief=RAISED)
-        self.pressed = None
-
-    def add_exc_control(self):
-        if self.pressed is None and self.wait_for_key < 0:
-            self.pressed = self.left_control_button
-            self.left_control_button.config(relief=SUNKEN)
-            self.wait_for_key = 0
-
-    def add_inh_control(self):
-        if self.pressed is None and self.wait_for_key < 0:
-            self.pressed = self.right_control_button
-            self.right_control_button.config(relief=SUNKEN)
-            self.wait_for_key = 1
+        for i, controller in enumerate(self.stim_controllers):
+            controller._delay_button_raise()
+            if controller.wait_for_key:
+                if self.wait_for_key < 0:
+                    self.wait_for_key = i
+                elif self.wait_for_key != i:
+                    controller.end_wait_for_key()
 
     def add_key(self, key):
-        self.keys[self.wait_for_key].append(key)
-        self.texts[self.wait_for_key].delete("1.0", END)
-        self.texts[self.wait_for_key].insert(END, ", ".join(self.keys[self.wait_for_key]))
+        self.stim_controllers[self.wait_for_key].add_key(key)
+        self.wait_for_key = -1
+
+    def reset_add_key(self):
+        self.stim_controllers[self.wait_for_key].end_wait_for_key()
         self.wait_for_key = -1
 
     def strike(self, key):
-        if key in self.keys[0]:
-            self.excitatory_input()
-        elif key in self.keys[1]:
-            self.inhibitory_input()
-
-    def excitatory_input(self):
-        if self.pressed is None:
-            self.pressed = self.exc_button
-            self.exc_button.config(relief=SUNKEN)
-            self.receive_spike(self.excitatory_weight, self.syn_delay)
-
-    def inhibitory_input(self):
-        if self.pressed is None:
-            self.pressed = self.inh_button
-            self.inh_button.config(relief=SUNKEN)
-            self.receive_spike(self.inhibitory_weight, self.syn_delay)
+        for controller in self.stim_controllers:
+            if key in controller.keys:
+                controller.stim_input()
+                break
 
     def receive_spike(self, weight: float, delay: float):
         self.neuron.receive_spike(self.current_time, weight, delay)
@@ -154,7 +155,7 @@ class GameController:
             controller.update(self.dt)
             if controller.wait_for_key >= 0 and self.wait_for_key != i:
                 if self.wait_for_key >= 0:
-                    self.controllers[self.wait_for_key].wait_for_key = -1
+                    self.controllers[self.wait_for_key].reset_add_key()
                 self.wait_for_key = i
 
         self.current_time += self.dt
