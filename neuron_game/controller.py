@@ -1,4 +1,4 @@
-from tkinter import RAISED, RIDGE, SUNKEN, Button, Frame
+from tkinter import END, RAISED, RIDGE, SUNKEN, Button, Frame, Text
 
 from neuron_game.display import PlotDisplay
 from neuron_game.iaf_cond_alpha import IAFCondAlpha
@@ -54,7 +54,10 @@ class NeuronController:
             text="Add inh. control",
             command=self.add_inh_control,
         )
-        self.right_control_button.grid(column=1, row=1, padx=10, pady=10, sticky="nw")
+        self.right_control_button.grid(column=1, row=1, padx=10, pady=10, sticky="ne")
+        self.texts = [Text(self.controllerView, width=24, height=3) for _ in range(2)]
+        self.texts[0].grid(column=0, row=2, padx=10, sticky="nw")
+        self.texts[1].grid(column=1, row=2, padx=10, sticky="ne")
         self.inhibitory_weight = inhibitory_weight
         self.syn_delay = syn_delay
         self.pressed = None
@@ -86,6 +89,8 @@ class NeuronController:
 
     def add_key(self, key):
         self.keys[self.wait_for_key].append(key)
+        self.texts[self.wait_for_key].delete("1.0", END)
+        self.texts[self.wait_for_key].insert(END, ", ".join(self.keys[self.wait_for_key]))
         self.wait_for_key = -1
 
     def strike(self, key):
@@ -159,7 +164,7 @@ class GameController:
             controller.grid(row=0, column=i)
 
     def _keystroke(self, event):
-        key_stroke = event.char.lower()
+        key_stroke = event.char.upper()
         if self.wait_for_key >= 0 and key_stroke not in self.keys:
             self.keys[key_stroke] = self.wait_for_key
             self.controllers[self.wait_for_key].add_key(key_stroke)
