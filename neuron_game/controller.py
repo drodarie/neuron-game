@@ -38,10 +38,28 @@ class NeuronController:
             text="Inhibitory Input",
             command=self.inhibitory_input,
         )
-        self.inh_button.grid(column=1, row=0, padx=10, pady=10, sticky="w")
+        self.inh_button.grid(column=1, row=0, padx=10, pady=10, sticky="ne")
+        self.left_control_button = Button(
+            self.controllerView,
+            padx=6,
+            bg="#add8e6",
+            text="Add exc. control",
+            command=self.add_exc_control,
+        )
+        self.left_control_button.grid(column=0, row=1, padx=10, pady=10, sticky="nw")
+        self.right_control_button = Button(
+            self.controllerView,
+            padx=6,
+            bg="#f1807e",
+            text="Add inh. control",
+            command=self.add_inh_control,
+        )
+        self.right_control_button.grid(column=1, row=1, padx=10, pady=10, sticky="nw")
         self.inhibitory_weight = inhibitory_weight
         self.syn_delay = syn_delay
         self.pressed = None
+        self.keys = [[], []]
+        self.wait_for_key = -1
 
     def update(self, dt: float):
         self.current_time += dt
@@ -53,6 +71,28 @@ class NeuronController:
     def _delay_button_raise(self, button):
         button.config(relief=RAISED)
         self.pressed = None
+
+    def add_exc_control(self):
+        if self.pressed is None and self.wait_for_key < 0:
+            self.pressed = self.left_control_button
+            self.left_control_button.config(relief=SUNKEN)
+            self.wait_for_key = 0
+
+    def add_inh_control(self):
+        if self.pressed is None and self.wait_for_key < 0:
+            self.pressed = self.right_control_button
+            self.right_control_button.config(relief=SUNKEN)
+            self.wait_for_key = 1
+
+    def add_key(self, key):
+        self.keys[self.wait_for_key].append(key)
+        self.wait_for_key = -1
+
+    def strike(self, key):
+        if key in self.keys[0]:
+            self.excitatory_input()
+        elif key in self.keys[1]:
+            self.inhibitory_input()
 
     def excitatory_input(self):
         if self.pressed is None:
@@ -86,14 +126,10 @@ class NeuronController:
         self.controllerView.columnconfigure(0, weight=1)
 
 
-CONTROLS = [["a", "d"], ["j", "l"]]
-
-
 class GameController:
     def __init__(self, views: list[PlotDisplay], neurons: list[IAFCondAlpha]):
         assert len(views) > 0
         assert len(views) == len(neurons)
-        assert len(views) <= len(CONTROLS)
         self.current_time = 0
         self.dt = 0.1
         self.delays = [0.1] * len(neurons)
@@ -105,11 +141,17 @@ class GameController:
             NeuronController(neuron, view, excitatory_weight=weight, inhibitory_weight=-weight)
             for neuron, view, weight in zip(neurons, views, self.weights, strict=False)
         ]
-        self.keys = [CONTROLS[i] for i in range(len(views))]
+        self.wait_for_key = -1
+        self.keys = {}
 
     def update(self):
-        for controller in self.controllers:
+        for i, controller in enumerate(self.controllers):
             controller.update(self.dt)
+            if controller.wait_for_key >= 0 and self.wait_for_key != i:
+                if self.wait_for_key >= 0:
+                    self.controllers[self.wait_for_key].wait_for_key = -1
+                self.wait_for_key = i
+
         self.current_time += self.dt
 
     def grid(self):
@@ -117,10 +159,10 @@ class GameController:
             controller.grid(row=0, column=i)
 
     def _keystroke(self, event):
-        for i, keys in enumerate(self.keys):
-            if event.char.lower() == keys[0]:
-                self.controllers[i].excitatory_input()
-                break
-            elif event.char.lower() == keys[1]:
-                self.controllers[i].inhibitory_input()
-                break
+        key_stroke = event.char.lower()
+        if self.wait_for_key >= 0 and key_stroke not in self.keys:
+            self.keys[key_stroke] = self.wait_for_key
+            self.controllers[self.wait_for_key].add_key(key_stroke)
+            self.wait_for_key = -1
+        elif self.wait_for_key < 0 and key_stroke in self.keys:
+            self.controllers[self.keys[key_stroke]].strike(key_stroke)
