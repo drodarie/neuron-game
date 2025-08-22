@@ -1,7 +1,8 @@
 # Tkinter game to simulate point-neurons 
 This game displays the membrane potential of two neurons. 
 The players can interact with each neuron by sending either an excitatory or inhibitory input, 
-either with the buttons displayed or by linking one (or more) key to each input type. 
+either with the buttons displayed or by linking one (or more) key to each input type.
+Only alphanumerical keys can be used to stimulate neurons.
 
 The goal for each player is to make their neuron spike while preventing the other neuron to spike.
 A spike event will be highlighted with a vertical red line.

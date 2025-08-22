@@ -206,6 +206,8 @@ class GameController:
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()
+        if not key_stroke.isalnum():
+            return
         if self.wait_for_key >= 0 and key_stroke not in self.keys:
             self.keys[key_stroke] = self.wait_for_key
             self.controllers[self.wait_for_key].add_key(key_stroke)
