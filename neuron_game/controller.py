@@ -1,3 +1,4 @@
+from functools import partial
 from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label, Scale
 
 from neuron_game.display import PlotDisplay
@@ -58,13 +59,12 @@ class InputController:
 
 class NeuronParams:
     def __init__(self, root, params: dict, observer):
-        self.params = params
         self.pressed = False
         self.wait_for_key = False
         self.observer = observer
 
         self.params_button = []
-        for i, (k, v) in enumerate(self.params.items()):
+        for i, (k, v) in enumerate(params.items()):
             l_ = Label(root, text=k)
             self.params_button.append(
                 Scale(
@@ -74,7 +74,7 @@ class NeuronParams:
                     resolution=(RANGES[k][1] - RANGES[k][0]) / 100,
                     showvalue=True,
                     orient="horizontal",
-                    command=self.slider_changed,
+                    command=partial(self.slider_changed, k),
                 )
             )
             self.params_button[-1].set(v)
@@ -83,9 +83,8 @@ class NeuronParams:
                 column=(i * 2) % 6 + 1, row=i // 3, padx=5, pady=5, sticky="nw"
             )
 
-    def slider_changed(self, slider):
-        # TODO: change neuron values
-        pass
+    def slider_changed(self, key, slider):
+        self.observer.change_params(key, float(slider))
 
 
 class NeuronController:
@@ -153,6 +152,9 @@ class NeuronController:
 
     def receive_spike(self, weight: float, delay: float):
         self.neuron.receive_spike(self.current_time, weight, delay)
+
+    def change_params(self, param, value):
+        self.neuron.__setattr__(param, value)
 
     def grid(self, **kw):
         """
