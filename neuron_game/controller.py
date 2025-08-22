@@ -1,7 +1,7 @@
-from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label
+from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label, Scale
 
 from neuron_game.display import PlotDisplay
-from neuron_game.iaf_cond_alpha import IAFCondAlpha
+from neuron_game.iaf_cond_alpha import RANGES, IAFCondAlpha
 
 
 class InputController:
@@ -56,6 +56,38 @@ class InputController:
         self.pressed = False
 
 
+class NeuronParams:
+    def __init__(self, root, params: dict, observer):
+        self.params = params
+        self.pressed = False
+        self.wait_for_key = False
+        self.observer = observer
+
+        self.params_button = []
+        for i, (k, v) in enumerate(self.params.items()):
+            l_ = Label(root, text=k)
+            self.params_button.append(
+                Scale(
+                    root,
+                    from_=RANGES[k][0],
+                    to=RANGES[k][1],
+                    resolution=(RANGES[k][1] - RANGES[k][0]) / 100,
+                    showvalue=True,
+                    orient="horizontal",
+                    command=self.slider_changed,
+                )
+            )
+            self.params_button[-1].set(v)
+            l_.grid(column=(i * 2) % 6, row=i // 3, padx=0, pady=5, sticky="sw")
+            self.params_button[-1].grid(
+                column=(i * 2) % 6 + 1, row=i // 3, padx=5, pady=5, sticky="nw"
+            )
+
+    def slider_changed(self, slider):
+        # TODO: change neuron values
+        pass
+
+
 class NeuronController:
     def __init__(
         self,
@@ -73,8 +105,9 @@ class NeuronController:
         self.neuron = neuron
         self.plotView = view
         self.controllerView = Frame(view.frame, relief=RIDGE, borderwidth=2)
+        self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
         self.stim_controllers = [
-            InputController(self.controllerView, f"{text} Input", color, i, weight, syn_delay, self)
+            InputController(self.buttonsView, f"{text} Input", color, i, weight, syn_delay, self)
             for i, (text, color, weight) in enumerate(
                 zip(
                     ["Excitatory", "Inhibitory"],
@@ -84,6 +117,12 @@ class NeuronController:
                 )
             )
         ]
+        self.paramsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
+        self.params_controller = NeuronParams(self.paramsView, self.neuron.get_params(), self)
+
+        self.buttonsView.grid(row=0, column=0, sticky="nw")  # make frame container sticky
+        self.paramsView.grid(row=0, column=1, sticky="ne")  # make frame container sticky
+
         self.wait_for_key = -1
 
     def update(self, dt: float):
@@ -121,8 +160,7 @@ class NeuronController:
         """
         self.plotView.frame.grid(**kw)
 
-        self.plotView.canvas.get_tk_widget().grid(row=0, column=0)
-        self.plotView.canvas.get_tk_widget().grid(sticky="nswe")
+        self.plotView.canvas.get_tk_widget().grid(row=0, column=0, sticky="nw")
         self.plotView.canvas.get_tk_widget().rowconfigure(0, weight=1)
         self.plotView.canvas.get_tk_widget().columnconfigure(0, weight=1)
 
@@ -162,7 +200,7 @@ class GameController:
 
     def grid(self):
         for i, controller in enumerate(self.controllers):
-            controller.grid(row=0, column=i)
+            controller.grid(row=0, column=i, sticky="nw" if i == 0 else "ne")
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()
