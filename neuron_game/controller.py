@@ -1,6 +1,8 @@
 from functools import partial
 from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label, Scale
 
+import numpy as np
+
 from neuron_game.display import PlotDisplay
 from neuron_game.iaf_cond_alpha import RANGES, IAFCondAlpha
 
@@ -16,8 +18,6 @@ class InputController:
             text=button_text,
             command=self.stim_input,
         )
-        sticky = "nw" if column == 0 else "ne"
-        self.stim_button.grid(column=column, row=0, padx=10, pady=10, sticky=sticky)
         self.control_button = Button(
             root,
             padx=6,
@@ -25,8 +25,10 @@ class InputController:
             text="Add control",
             command=self.add_control,
         )
-        self.control_button.grid(column=column, row=1, padx=10, pady=10, sticky=sticky)
+        sticky = "nw" if column == 0 else "ne"
         self.text = Label(root, width=24, height=3, anchor=sticky, justify=LEFT)
+        self.stim_button.grid(column=column, row=0, padx=10, pady=10, sticky=sticky)
+        self.control_button.grid(column=column, row=1, padx=10, pady=10, sticky=sticky)
         self.text.grid(column=column, row=2, padx=10, sticky=sticky)
         self.weight = weight
         self.delay = delay
@@ -96,6 +98,8 @@ class NeuronController:
         excitatory_weight: float = 100.0,
         inhibitory_weight: float = -100.0,
         syn_delay: float = 0.1,
+        display_parameters: bool = False,
+        display_controls: bool = False,
     ):
         assert syn_delay > 0
         assert inhibitory_weight < 0
@@ -104,23 +108,30 @@ class NeuronController:
         self.neuron = neuron
         self.plotView = view
         self.controllerView = Frame(view.frame, relief=RIDGE, borderwidth=2)
-        self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
-        self.stim_controllers = [
-            InputController(self.buttonsView, f"{text} Input", color, i, weight, syn_delay, self)
-            for i, (text, color, weight) in enumerate(
-                zip(
-                    ["Excitatory", "Inhibitory"],
-                    ["#add8e6", "#f1807e"],
-                    [excitatory_weight, inhibitory_weight],
-                    strict=False,
+        if display_controls:
+            self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
+            self.stim_controllers = [
+                InputController(
+                    self.buttonsView, f"{text} Input", color, i, weight, syn_delay, self
                 )
-            )
-        ]
-        self.paramsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
-        self.params_controller = NeuronParams(self.paramsView, self.neuron.get_params(), self)
-
-        self.buttonsView.grid(row=0, column=0, sticky="nw")  # make frame container sticky
-        self.paramsView.grid(row=0, column=1, sticky="ne")  # make frame container sticky
+                for i, (text, color, weight) in enumerate(
+                    zip(
+                        ["Excitatory", "Inhibitory"],
+                        ["#add8e6", "#f1807e"],
+                        [excitatory_weight, inhibitory_weight],
+                        strict=False,
+                    )
+                )
+            ]
+            self.buttonsView.rowconfigure(0, weight=1)
+            self.buttonsView.columnconfigure(0, weight=1)
+            self.buttonsView.grid(row=0, column=0, sticky="we")  # make frame container sticky
+        else:
+            self.stim_controllers = []
+        if display_parameters:
+            self.paramsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
+            self.params_controller = NeuronParams(self.paramsView, self.neuron.get_params(), self)
+            self.paramsView.grid(row=0, column=1, sticky="ne")  # make frame container sticky
 
         self.wait_for_key = -1
 
@@ -135,6 +146,7 @@ class NeuronController:
                     self.wait_for_key = i
                 elif self.wait_for_key != i:
                     controller.end_wait_for_key()
+        return spiked
 
     def add_key(self, key):
         self.stim_controllers[self.wait_for_key].add_key(key)
@@ -161,21 +173,36 @@ class NeuronController:
         Put the controller widget on the parent widget.
         """
         self.plotView.frame.grid(**kw)
-
         self.plotView.canvas.get_tk_widget().grid(row=0, column=0, sticky="nw")
         self.plotView.canvas.get_tk_widget().rowconfigure(0, weight=1)
         self.plotView.canvas.get_tk_widget().columnconfigure(0, weight=1)
-
         self.controllerView.grid(row=1, column=0)  # place CanvasImage widget on the grid
-        self.controllerView.grid(sticky="nw")  # make frame container sticky
+        self.controllerView.grid(sticky="we")  # make frame container sticky
         self.controllerView.rowconfigure(0, weight=1)  # make canvas expandable
         self.controllerView.columnconfigure(0, weight=1)
 
 
 class GameController:
-    def __init__(self, views: list[PlotDisplay], neurons: list[IAFCondAlpha]):
+    def __init__(
+        self,
+        views: list[PlotDisplay],
+        neurons: list[IAFCondAlpha],
+        display_parameters: list[bool] = None,
+        display_controls: list[bool] = None,
+        connectome=None,
+    ):
         assert len(views) > 0
         assert len(views) == len(neurons)
+        if display_controls is None:
+            display_parameters = [True] * len(neurons)
+        assert len(display_parameters) == len(neurons)
+        if display_controls is None:
+            display_controls = [True] * len(neurons)
+        assert len(display_controls) == len(neurons)
+        if connectome is None:
+            connectome = np.zeros((len(neurons), len(neurons)), dtype=float)
+        assert connectome.shape == (len(neurons), len(neurons))
+        self.connectome = connectome
         self.current_time = 0
         self.dt = 0.1
         self.delays = [0.1] * len(neurons)
@@ -184,15 +211,28 @@ class GameController:
             neuron.init_buffers(delay)
         self.weights = [100.0] * len(neurons)
         self.controllers = [
-            NeuronController(neuron, view, excitatory_weight=weight, inhibitory_weight=-weight)
-            for neuron, view, weight in zip(neurons, views, self.weights, strict=False)
+            NeuronController(
+                neuron,
+                view,
+                excitatory_weight=weight,
+                inhibitory_weight=-weight,
+                display_parameters=show_params,
+                display_controls=show_controls,
+            )
+            for neuron, view, weight, show_params, show_controls in zip(
+                neurons, views, self.weights, display_parameters, display_controls, strict=False
+            )
         ]
         self.wait_for_key = -1
         self.keys = {}
 
     def update(self):
         for i, controller in enumerate(self.controllers):
-            controller.update(self.dt)
+            spiked = controller.update(self.dt)
+            if spiked:
+                for target, weight in enumerate(self.connectome[i]):
+                    if np.absolute(weight) >= 1e-3:
+                        self.controllers[target].receive_spike(weight, self.delays[target])
             if controller.wait_for_key >= 0 and self.wait_for_key != i:
                 if self.wait_for_key >= 0:
                     self.controllers[self.wait_for_key].reset_add_key()
@@ -202,7 +242,8 @@ class GameController:
 
     def grid(self):
         for i, controller in enumerate(self.controllers):
-            controller.grid(row=0, column=i, sticky="nw" if i == 0 else "ne")
+            sticky = "nw" if i % 2 == 0 else "ne"
+            controller.grid(row=i // 2, column=i % 2, sticky=sticky)
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()

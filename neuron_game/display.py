@@ -21,7 +21,7 @@ class PlotDisplay:
         self.dt = dt
         self.x = np.arange(-self.points_displayed * dt, -dt + 1e-5, dt).tolist()
         self.y = [origin_value] * self.points_displayed
-        self.figure, self.ax = plt.subplots(1, 1, figsize=(9.6, 4))
+        self.figure, self.ax = plt.subplots(1, 1, figsize=(10.0, 4))
         (self.line,) = self.ax.plot(self.x, self.y, color=color, linewidth=2.0)
         self.ax.set_xlim([self.x[0], self.x[-1] + self.points_displayed * dt])
         self.ax.set_xlabel("Time (ms)")
