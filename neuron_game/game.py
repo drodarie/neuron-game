@@ -179,7 +179,7 @@ class NeuronGame:
                 self.root.geometry("1920x1080")
                 self.current_display = MultiplayerGame(self.root)
             else:
-                self.root.geometry("960x570")
+                self.root.geometry("960x620")
                 self.current_display = SingleExploration(self.root)
             self.current_display.start()
             self.root.mainloop()
