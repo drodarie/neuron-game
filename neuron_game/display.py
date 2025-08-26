@@ -21,7 +21,7 @@ class PlotDisplay:
         self.dt = dt
         self.x = np.arange(-self.points_displayed * dt, -dt + 1e-5, dt).tolist()
         self.y = [origin_value] * self.points_displayed
-        self.figure, self.ax = plt.subplots(1, 1, figsize=(10.0, 4))
+        self.figure, self.ax = plt.subplots(1, 1, figsize=(9.7, 4))
         (self.line,) = self.ax.plot(self.x, self.y, color=color, linewidth=2.0)
         self.ax.set_xlim([self.x[0], self.x[-1] + self.points_displayed * dt])
         self.ax.set_xlabel("Time (ms)")
@@ -29,6 +29,7 @@ class PlotDisplay:
         self.ax.set_title(title)
         if ylims is not None:
             self.ax.set_ylim(ylims)
+        self.figure.set_tight_layout(True)
         self.frame = Frame(placeholder)
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.frame)
         self.spikes = []
@@ -41,6 +42,9 @@ class PlotDisplay:
         self.frame.grid(sticky="nswe")  # make frame container sticky
         self.frame.rowconfigure(0, weight=1)  # make canvas expandable
         self.frame.columnconfigure(0, weight=1)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nwe")
+        self.canvas.get_tk_widget().rowconfigure(0, weight=1)
+        self.canvas.get_tk_widget().columnconfigure(0, weight=1)
 
     def update(self, t: float, new_value: float, spike=False):
         buffer_idx = int(t / self.dt) % self.points_displayed

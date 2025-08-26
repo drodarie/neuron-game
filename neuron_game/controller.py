@@ -172,12 +172,9 @@ class NeuronController:
         """
         Put the controller widget on the parent widget.
         """
-        self.plotView.frame.grid(**kw)
-        self.plotView.canvas.get_tk_widget().grid(row=0, column=0, sticky="nw")
-        self.plotView.canvas.get_tk_widget().rowconfigure(0, weight=1)
-        self.plotView.canvas.get_tk_widget().columnconfigure(0, weight=1)
+        self.plotView.grid(**kw)
         self.controllerView.grid(row=1, column=0)  # place CanvasImage widget on the grid
-        self.controllerView.grid(sticky="we")  # make frame container sticky
+        self.controllerView.grid(sticky="nswe")  # make frame container sticky
         self.controllerView.rowconfigure(0, weight=1)  # make canvas expandable
         self.controllerView.columnconfigure(0, weight=1)
 
@@ -240,10 +237,10 @@ class GameController:
 
         self.current_time += self.dt
 
-    def grid(self):
-        for i, controller in enumerate(self.controllers):
-            sticky = "nw" if i % 2 == 0 else "ne"
-            controller.grid(row=i // 2, column=i % 2, sticky=sticky)
+    def grid(self, rows, columns):
+        for controller, row, column in zip(self.controllers, rows, columns, strict=False):
+            sticky = "nw" if column == 0 else "ne"
+            controller.grid(row=row, column=column, sticky=sticky)
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()
