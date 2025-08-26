@@ -1,5 +1,8 @@
 from functools import partial
+from os import remove
+from os.path import abspath, dirname, join
 from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label, Scale
+from uuid import uuid4
 
 import numpy as np
 
@@ -100,6 +103,7 @@ class NeuronController:
         syn_delay: float = 0.1,
         display_parameters: bool = False,
         display_controls: bool = False,
+        save_values: bool = False,
     ):
         assert syn_delay > 0
         assert inhibitory_weight < 0
@@ -108,6 +112,9 @@ class NeuronController:
         self.neuron = neuron
         self.plotView = view
         self.controllerView = Frame(view.frame, relief=RIDGE, borderwidth=2)
+        self.save_values = save_values
+        if self.save_values:
+            self.save_file = join(dirname(abspath(__file__)), f"vm_{uuid4()}.txt")
         if display_controls:
             self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
             self.stim_controllers = [
@@ -135,9 +142,16 @@ class NeuronController:
 
         self.wait_for_key = -1
 
+    def __del__(self):
+        if self.save_values:
+            remove(self.save_file)
+
     def update(self, dt: float):
         self.current_time += dt
         spiked = self.neuron.update(self.current_time)
+        if self.save_values:
+            with open(self.save_file, "a") as f:
+                f.write(f"{self.current_time}\t{self.neuron.V_m}\n")
         self.plotView.update(self.current_time, self.neuron.V_m, spike=spiked)
         for i, controller in enumerate(self.stim_controllers):
             controller._delay_button_raise()
@@ -187,6 +201,7 @@ class GameController:
         display_parameters: list[bool] = None,
         display_controls: list[bool] = None,
         connectome=None,
+        save_values: bool = False,
     ):
         assert len(views) > 0
         assert len(views) == len(neurons)
@@ -200,6 +215,8 @@ class GameController:
             connectome = np.zeros((len(neurons), len(neurons)), dtype=float)
         assert connectome.shape == (len(neurons), len(neurons))
         self.connectome = connectome
+        self.save_values = save_values
+
         self.current_time = 0
         self.dt = 0.1
         self.delays = [0.1] * len(neurons)
@@ -215,6 +232,7 @@ class GameController:
                 inhibitory_weight=-weight,
                 display_parameters=show_params,
                 display_controls=show_controls,
+                save_values=self.save_values,
             )
             for neuron, view, weight, show_params, show_controls in zip(
                 neurons, views, self.weights, display_parameters, display_controls, strict=False
