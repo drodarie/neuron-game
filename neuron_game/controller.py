@@ -114,7 +114,7 @@ class NeuronController:
         self.controllerView = Frame(view.frame, relief=RIDGE, borderwidth=2)
         self.save_values = save_values
         if self.save_values:
-            self.save_file = join(dirname(abspath(__file__)), f"vm_{uuid4()}.txt")
+            self.save_file = join(dirname(dirname(abspath(__file__))), f"vm_{uuid4()}.txt")
         if display_controls:
             self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
             self.stim_controllers = [
