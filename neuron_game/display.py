@@ -19,8 +19,8 @@ class PlotDisplay:
     ):
         self.points_displayed = points_displayed
         self.dt = dt
-        self.x = np.arange(-self.points_displayed * dt, -dt + 1e-5, dt).tolist()
-        self.y = [origin_value] * self.points_displayed
+        self.x = np.arange(-self.points_displayed * dt, -dt + 1e-5, dt)
+        self.y = np.full(self.points_displayed, origin_value)
         self.figure, self.ax = plt.subplots(1, 1, figsize=(9.7, 4))
         (self.line,) = self.ax.plot(self.x, self.y, color=color, linewidth=2.0)
         self.ax.set_xlim([self.x[0], self.x[-1] + self.points_displayed * dt])
@@ -50,9 +50,9 @@ class PlotDisplay:
         buffer_idx = int(np.round(t / self.dt)) % self.points_displayed
         self.x[buffer_idx] = t
         self.y[buffer_idx] = new_value
-        displayed_x = self.x[buffer_idx + 1 :] + self.x[: buffer_idx + 1]
+        displayed_x = np.roll(self.x, -buffer_idx - 1)
         self.line.set_xdata(displayed_x)
-        self.line.set_ydata(self.y[buffer_idx + 1 :] + self.y[: buffer_idx + 1])
+        self.line.set_ydata(np.roll(self.y, -buffer_idx - 1))
         if spike:
             line = self.ax.axvline(x=t, linewidth=2.0, color="red")
             self.spikes.append((t, line))
