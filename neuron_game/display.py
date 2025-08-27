@@ -47,17 +47,17 @@ class PlotDisplay:
         self.canvas.get_tk_widget().columnconfigure(0, weight=1)
 
     def update(self, t: float, new_value: float, spike=False):
-        buffer_idx = int(t / self.dt) % self.points_displayed
+        buffer_idx = int(np.round(t / self.dt)) % self.points_displayed
         self.x[buffer_idx] = t
         self.y[buffer_idx] = new_value
-        diplayed_x = self.x[buffer_idx + 1 :] + self.x[: buffer_idx + 1]
-        self.line.set_xdata(diplayed_x)
+        displayed_x = self.x[buffer_idx + 1 :] + self.x[: buffer_idx + 1]
+        self.line.set_xdata(displayed_x)
         self.line.set_ydata(self.y[buffer_idx + 1 :] + self.y[: buffer_idx + 1])
         if spike:
             line = self.ax.axvline(x=t, linewidth=2.0, color="red")
             self.spikes.append((t, line))
-        self.ax.set_xlim([diplayed_x[0], diplayed_x[-1] + self.points_displayed * self.dt])
-        if len(self.spikes) > 0 and self.spikes[0][0] < diplayed_x[0]:
+        self.ax.set_xlim([displayed_x[0], t + self.points_displayed * self.dt])
+        if len(self.spikes) > 0 and self.spikes[0][0] < displayed_x[0]:
             _, line = self.spikes.pop(0)
             line.remove()
 

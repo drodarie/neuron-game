@@ -147,7 +147,6 @@ class NeuronController:
             remove(self.save_file)
 
     def update(self, dt: float):
-        self.current_time += dt
         spiked = self.neuron.update(self.current_time)
         if self.save_values:
             with open(self.save_file, "a") as f:
@@ -160,6 +159,7 @@ class NeuronController:
                     self.wait_for_key = i
                 elif self.wait_for_key != i:
                     controller.end_wait_for_key()
+        self.current_time += dt
         return spiked
 
     def add_key(self, key):
