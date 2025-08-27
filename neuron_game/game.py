@@ -184,6 +184,7 @@ class NeuronGame:
             self.current_display.start()
             self.root.mainloop()
             current_choice = getattr(self.current_display, "choice", None)
+            del self.current_display
 
     def cleanup(self):
         self.current_display.cleanup()

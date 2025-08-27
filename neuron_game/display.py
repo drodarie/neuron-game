@@ -24,7 +24,7 @@ class PlotDisplay:
         self.figure, self.ax = plt.subplots(1, 1, figsize=(9.7, 4))
         (self.line,) = self.ax.plot(self.x, self.y, color=color, linewidth=2.0)
         self.ax.set_xlim([self.x[0], self.x[-1] + self.points_displayed * dt])
-        self.ax.set_xlabel("Time (ms)")
+        plt.setp(self.ax.get_xticklabels(), ha="right")
         self.ax.set_ylabel(ylabel)
         self.ax.set_title(title)
         if ylims is not None:
