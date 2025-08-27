@@ -46,11 +46,11 @@ class MultiplayerGame(Panel):
         titles = ["Excitatory neuron", "Inhibitory neuron", "Target neuron"]
         self.canvases = []
         for i, (neuron, title) in enumerate(zip(self.neurons, titles, strict=False)):
-            root = self.frames[0]
+            loc_root = self.frames[0]
             if i == len(self.neurons) - 1:
-                root = self.frames[1]
+                loc_root = self.frames[1]
             self.canvases.append(
-                PlotDisplay(root, origin_value=neuron.V_m, ylims=[-90, -30], title=title)
+                PlotDisplay(loc_root, origin_value=neuron.V_m, ylims=[-90, -30], title=title)
             )
 
         self.side_canvases = [Canvas(self.frames[1]) for _ in range(2)]

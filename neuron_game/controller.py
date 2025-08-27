@@ -1,7 +1,7 @@
 from functools import partial
 from os import remove
 from os.path import abspath, dirname, exists, join
-from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label, Scale
+from tkinter import BOTH, LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label, Scale
 from uuid import uuid4
 
 import numpy as np
@@ -129,15 +129,11 @@ class NeuronController:
                     )
                 )
             ]
-            self.buttonsView.rowconfigure(0, weight=1)
-            self.buttonsView.columnconfigure(0, weight=1)
-            self.buttonsView.grid(row=0, column=0, sticky="we")  # make frame container sticky
         else:
             self.stim_controllers = []
         if display_parameters:
             self.paramsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
             self.params_controller = NeuronParams(self.paramsView, self.neuron.get_params(), self)
-            self.paramsView.grid(row=0, column=1, sticky="ne")  # make frame container sticky
 
         self.wait_for_key = -1
 
@@ -188,15 +184,19 @@ class NeuronController:
     def change_params(self, param, value):
         self.neuron.__setattr__(param, value)
 
-    def grid(self, **kw):
+    def grid(self, row, column, sticky):
         """
         Put the controller widget on the parent widget.
         """
-        self.plotView.grid(**kw)
+        self.plotView.grid(row=row, column=column, sticky=sticky)
         self.controllerView.grid(row=1, column=0)  # place CanvasImage widget on the grid
-        self.controllerView.grid(sticky="nswe")  # make frame container sticky
+        self.controllerView.grid(sticky=sticky)  # make frame container sticky
         self.controllerView.rowconfigure(0, weight=1)  # make canvas expandable
         self.controllerView.columnconfigure(0, weight=1)
+        if hasattr(self, "paramsView"):
+            self.paramsView.grid(row=0, column=1, sticky=sticky)  # make frame container sticky
+        if hasattr(self, "buttonsView"):
+            self.buttonsView.grid(row=0, column=0, sticky=sticky)
 
 
 class GameController:
@@ -249,6 +249,14 @@ class GameController:
                 neurons, views, self.weights, display_parameters, display_controls, strict=False
             )
         ]
+        if len(neurons) > 0:
+            root = views[0].frame.master
+            self.pause_frame = Frame(root)
+            self.pause_frame.tkraise()
+            self.pause_frame.rowconfigure(0, weight=1)  # make canvas expandable
+            self.pause_frame.columnconfigure(0, weight=1)
+            self.time_label = Label(self.pause_frame, text="PAUSE", font=("Arial", 30, "bold"))
+            self.time_label.pack(fill=BOTH, expand=True)
         self.wait_for_key = -1
         self.keys = {}
 
@@ -271,14 +279,34 @@ class GameController:
                     self.wait_for_key = i
         if found_waiting < 0 <= self.wait_for_key:
             self.wait_for_key = -1
+        self.show_pause()
         if not self.is_paused:
             self.current_time += self.dt
         return 0 < self.simulation_duration <= self.current_time
 
     def grid(self, rows, columns):
         for controller, row, column in zip(self.controllers, rows, columns, strict=False):
-            sticky = "nw" if column == 0 else "ne"
+            sticky = "nsw" if column == 0 else "nse"
             controller.grid(row=row, column=column, sticky=sticky)
+
+    def show_pause(self):
+        if self.is_paused:
+            self.time_label.config(text="PAUSE")
+            if self.simulation_duration <= 0.0 or self.current_time <= self.dt:
+                sticky = {} if len(self.controllers) <= 1 else {"sticky": "s"}
+                self.pause_frame.grid(
+                    row=0,
+                    column=0,
+                    rowspan=1,
+                    columnspan=2,
+                    **sticky,
+                )
+        else:
+            self.time_label.config(
+                text=f"Time left\n{(self.simulation_duration - self.current_time):.1f}"
+            )
+            if self.simulation_duration <= 0.0:
+                self.pause_frame.grid_forget()
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()
