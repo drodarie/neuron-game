@@ -30,12 +30,13 @@ python neuron_game/game.py
 ```
 
 ## Context
-In this game, we simulate neurons as integrate and fire point-neurons and display their membrane potential in a plot.
-The plots are automatically updated according to time. Each neuron's spike events are also highlighted with red vertical lines.
-Players can interact with neurons by sending either an excitatory or inhibitory input. 
+In this game, we simulate neurons as integrate and fire point-neurons and display their membrane potential in a plot.  
+The plots are automatically updated according to time. Simulation can be paused pressing the `spacebar` button.  
+Each neuron's spike events are highlighted with red vertical lines.  
 
+Players can interact with neurons by sending either an excitatory or inhibitory input.  
 These inputs can be sent using the corresponding buttons displayed or by linking one (or more) key to each input type.
-Only alphanumerical keys can be used to stimulate neurons.
+Only alphanumerical keys can be used as control to stimulate neurons.
 
 It has two game modes that you can choose from the main menu:
 - A single neuron simulation where the user can manipulate each parameter of the neuron 
@@ -52,4 +53,6 @@ The neuron on the right is inhibitory, and produce an inhibitory input on its ta
 
 The goal of each player is to drive the membrane potential of the target neuron towards their own extrema 
 (bottom for the right player and top for the left player).
-The simulation will last 50 ms after which the game will be over.
+
+This mode starts in a paused state to let time for each player to sets its controls.
+The simulation will last 50 ms (simulation time) after which the game will be over.

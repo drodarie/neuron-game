@@ -15,6 +15,7 @@ class Panel:
         for i, frame in enumerate(self.frames):
             frame.grid(row=i, column=0)
         self.controller = None
+        self.has_quit = False
 
     def cleanup(self):
         self.root.unbind("<Key>")
@@ -23,9 +24,13 @@ class Panel:
             frame.destroy()
 
     def update(self):
-        if self.controller is not None:
-            self.controller.update()
-        self.root.after(5, self.update)
+        done = False
+        if not self.has_quit:
+            if self.controller is not None:
+                done = self.controller.update()
+            if not done:
+                self.root.after(5, self.update)
+        return done
 
     def start(self):
         if self.controller is not None:
@@ -47,8 +52,6 @@ class MultiplayerGame(Panel):
             self.canvases.append(
                 PlotDisplay(root, origin_value=neuron.V_m, ylims=[-90, -30], title=title)
             )
-        self.simulation_time = 50.0  # in ms
-        self.decrement = 0.1
 
         self.side_canvases = [Canvas(self.frames[1]) for _ in range(2)]
         self._side_display()
@@ -63,6 +66,8 @@ class MultiplayerGame(Panel):
             display_controls=[True, True, False],
             connectome=connectome,
             save_values=True,
+            simulation_duration=50.0,  # in ms
+            start_paused=True,
         )
         self.controller.grid(rows=[0] * nb_neuron, columns=[0, 1, 1])
 
@@ -88,12 +93,10 @@ class MultiplayerGame(Panel):
         self.side_canvases[1].create_line(*points, **dict_arrows)
 
     def update(self):
-        self.simulation_time -= self.decrement
-        if self.simulation_time < 0:
+        if super().update():
             self.cleanup()
             self.root.quit()
-            return
-        super().update()
+            return True
 
 
 class SingleExploration(Panel):
@@ -119,12 +122,6 @@ class SingleExploration(Panel):
             command=self.quit,
         )
         self.quit_button.grid(column=0, row=0, padx=10, pady=10, sticky="n")
-        self.has_quit = False
-
-    def update(self):
-        if self.has_quit:
-            return
-        super().update()
 
     def quit(self):
         self.cleanup()

@@ -1,6 +1,6 @@
 from functools import partial
 from os import remove
-from os.path import abspath, dirname, join
+from os.path import abspath, dirname, exists, join
 from tkinter import LEFT, RAISED, RIDGE, SUNKEN, Button, Frame, Label, Scale
 from uuid import uuid4
 
@@ -54,8 +54,8 @@ class InputController:
         self.wait_for_key = False
 
     def add_control(self):
-        self.wait_for_key = True
-        self.control_button.config(relief=SUNKEN)
+        self.wait_for_key = not self.wait_for_key
+        self.control_button.config(relief=SUNKEN if self.wait_for_key else RAISED)
 
     def _delay_button_raise(self):
         self.stim_button.config(relief=RAISED)
@@ -65,7 +65,6 @@ class InputController:
 class NeuronParams:
     def __init__(self, root, params: dict, observer):
         self.pressed = False
-        self.wait_for_key = False
         self.observer = observer
 
         self.params_button = []
@@ -143,7 +142,7 @@ class NeuronController:
         self.wait_for_key = -1
 
     def __del__(self):
-        if self.save_values:
+        if self.save_values and exists(self.save_file):
             remove(self.save_file)
 
     def update(self, dt: float):
@@ -152,15 +151,22 @@ class NeuronController:
             with open(self.save_file, "a") as f:
                 f.write(f"{self.current_time}\t{self.neuron.V_m}\n")
         self.plotView.update(self.current_time, self.neuron.V_m, spike=spiked)
+        self.update_keys()
+        self.current_time += dt
+        return spiked
+
+    def update_keys(self):
+        found_waiting = -1
         for i, controller in enumerate(self.stim_controllers):
             controller._delay_button_raise()
             if controller.wait_for_key:
+                found_waiting = i
                 if self.wait_for_key < 0:
                     self.wait_for_key = i
                 elif self.wait_for_key != i:
                     controller.end_wait_for_key()
-        self.current_time += dt
-        return spiked
+        if found_waiting < 0 <= self.wait_for_key:
+            self.wait_for_key = -1
 
     def add_key(self, key):
         self.stim_controllers[self.wait_for_key].add_key(key)
@@ -202,6 +208,8 @@ class GameController:
         display_controls: list[bool] = None,
         connectome=None,
         save_values: bool = False,
+        simulation_duration: float = -1.0,
+        start_paused: bool = False,
     ):
         assert len(views) > 0
         assert len(views) == len(neurons)
@@ -218,7 +226,10 @@ class GameController:
         self.save_values = save_values
 
         self.current_time = 0
+        self.simulation_duration = simulation_duration
         self.dt = 0.1
+        self.is_paused = start_paused
+
         self.delays = [0.1] * len(neurons)
         for neuron, delay in zip(neurons, self.delays, strict=False):
             neuron.dt = self.dt
@@ -242,18 +253,27 @@ class GameController:
         self.keys = {}
 
     def update(self):
+        found_waiting = -1
         for i, controller in enumerate(self.controllers):
-            spiked = controller.update(self.dt)
-            if spiked:
-                for target, weight in enumerate(self.connectome[i]):
-                    if np.absolute(weight) >= 1e-3:
-                        self.controllers[target].receive_spike(weight, self.delays[target])
-            if controller.wait_for_key >= 0 and self.wait_for_key != i:
-                if self.wait_for_key >= 0:
-                    self.controllers[self.wait_for_key].reset_add_key()
-                self.wait_for_key = i
-
-        self.current_time += self.dt
+            if self.is_paused:
+                controller.update_keys()
+            else:
+                spiked = controller.update(self.dt)
+                if spiked:
+                    for target, weight in enumerate(self.connectome[i]):
+                        if np.absolute(weight) >= 1e-3:
+                            self.controllers[target].receive_spike(weight, self.delays[target])
+            if controller.wait_for_key >= 0:
+                found_waiting = True
+                if self.wait_for_key != i:
+                    if self.wait_for_key >= 0:
+                        self.controllers[self.wait_for_key].reset_add_key()
+                    self.wait_for_key = i
+        if found_waiting < 0 <= self.wait_for_key:
+            self.wait_for_key = -1
+        if not self.is_paused:
+            self.current_time += self.dt
+        return 0 < self.simulation_duration <= self.current_time
 
     def grid(self, rows, columns):
         for controller, row, column in zip(self.controllers, rows, columns, strict=False):
@@ -262,11 +282,13 @@ class GameController:
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()
+        if event.keysym == "space":
+            self.is_paused = not self.is_paused
         if not key_stroke.isalnum():
             return
         if self.wait_for_key >= 0 and key_stroke not in self.keys:
             self.keys[key_stroke] = self.wait_for_key
             self.controllers[self.wait_for_key].add_key(key_stroke)
             self.wait_for_key = -1
-        elif self.wait_for_key < 0 and key_stroke in self.keys:
+        elif self.wait_for_key < 0 and not self.is_paused and key_stroke in self.keys:
             self.controllers[self.keys[key_stroke]].strike(key_stroke)
