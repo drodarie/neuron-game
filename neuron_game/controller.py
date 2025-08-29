@@ -95,7 +95,7 @@ class NeuronController:
     def __init__(
         self,
         neuron: IAFCondAlpha,
-        view: PlotDisplay,
+        root,
         current_time: float = 0.0,
         excitatory_weight: float = 100.0,
         inhibitory_weight: float = -100.0,
@@ -109,13 +109,11 @@ class NeuronController:
         assert excitatory_weight > 0
         self.current_time = current_time
         self.neuron = neuron
-        self.plotView = view
-        self.controllerView = Frame(view.frame, relief=RIDGE, borderwidth=2)
         self.save_values = save_values
         if self.save_values:
             self.save_file = join(dirname(dirname(abspath(__file__))), f"vm_{uuid4()}.txt")
         if display_controls:
-            self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
+            self.buttonsView = Frame(root, relief=RIDGE, borderwidth=2)
             self.stim_controllers = [
                 InputController(
                     self.buttonsView, f"{text} Input", color, i, weight, syn_delay, self
@@ -132,7 +130,7 @@ class NeuronController:
         else:
             self.stim_controllers = []
         if display_parameters:
-            self.paramsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
+            self.paramsView = Frame(root, relief=RIDGE, borderwidth=2)
             self.params_controller = NeuronParams(self.paramsView, self.neuron.get_params(), self)
 
         self.wait_for_key = -1
@@ -146,10 +144,9 @@ class NeuronController:
         if self.save_values:
             with open(self.save_file, "a") as f:
                 f.write(f"{self.current_time}\t{self.neuron.V_m}\n")
-        self.plotView.update(self.current_time, self.neuron.V_m, spike=spiked)
         self.update_keys()
         self.current_time += dt
-        return spiked
+        return self.neuron.V_m, spiked
 
     def update_keys(self):
         found_waiting = -1
@@ -184,15 +181,10 @@ class NeuronController:
     def change_params(self, param, value):
         self.neuron.__setattr__(param, value)
 
-    def grid(self, row, column, sticky):
+    def grid(self, sticky):
         """
         Put the controller widget on the parent widget.
         """
-        self.plotView.grid(row=row, column=column, sticky=sticky)
-        self.controllerView.grid(row=1, column=0)  # place CanvasImage widget on the grid
-        self.controllerView.grid(sticky=sticky)  # make frame container sticky
-        self.controllerView.rowconfigure(0, weight=1)  # make canvas expandable
-        self.controllerView.columnconfigure(0, weight=1)
         if hasattr(self, "paramsView"):
             self.paramsView.grid(row=0, column=1, sticky=sticky)  # make frame container sticky
         if hasattr(self, "buttonsView"):
@@ -202,7 +194,9 @@ class NeuronController:
 class GameController:
     def __init__(
         self,
-        views: list[PlotDisplay],
+        view: PlotDisplay,
+        controllers_root,
+        pause_root,
         neurons: list[IAFCondAlpha],
         display_parameters: list[bool] = None,
         display_controls: list[bool] = None,
@@ -211,8 +205,7 @@ class GameController:
         simulation_duration: float = -1.0,
         start_paused: bool = False,
     ):
-        assert len(views) > 0
-        assert len(views) == len(neurons)
+        assert len(neurons) > 0
         if display_controls is None:
             display_parameters = [True] * len(neurons)
         assert len(display_parameters) == len(neurons)
@@ -235,38 +228,47 @@ class GameController:
             neuron.dt = self.dt
             neuron.init_buffers(delay)
         self.weights = [100.0] * len(neurons)
+        self.plotView = view
         self.controllers = [
             NeuronController(
                 neuron,
-                view,
+                root,
                 excitatory_weight=weight,
                 inhibitory_weight=-weight,
                 display_parameters=show_params,
                 display_controls=show_controls,
                 save_values=self.save_values,
             )
-            for neuron, view, weight, show_params, show_controls in zip(
-                neurons, views, self.weights, display_parameters, display_controls, strict=False
+            for neuron, root, weight, show_params, show_controls in zip(
+                neurons,
+                controllers_root,
+                self.weights,
+                display_parameters,
+                display_controls,
+                strict=False,
             )
         ]
-        if len(neurons) > 0:
-            root = views[0].frame.master
-            self.pause_frame = Frame(root)
-            self.pause_frame.tkraise()
-            self.pause_frame.rowconfigure(0, weight=1)  # make canvas expandable
-            self.pause_frame.columnconfigure(0, weight=1)
-            self.time_label = Label(self.pause_frame, text="PAUSE", font=("Arial", 30, "bold"))
-            self.time_label.pack(fill=BOTH, expand=True)
+        self.pause_frame = Frame(pause_root)
+        self.pause_frame.tkraise()
+        self.pause_frame.rowconfigure(0, weight=1)  # make canvas expandable
+        self.pause_frame.columnconfigure(0, weight=1)
+        self.time_label = Label(self.pause_frame, text="PAUSE", font=("Arial", 30, "bold"))
+        self.time_label.pack(fill=BOTH, expand=True)
+
         self.wait_for_key = -1
         self.keys = {}
 
     def update(self):
         found_waiting = -1
+        v_ms = np.zeros(len(self.controllers))
+        spikes = np.zeros(len(self.controllers), dtype=bool)
         for i, controller in enumerate(self.controllers):
             if self.is_paused:
                 controller.update_keys()
             else:
-                spiked = controller.update(self.dt)
+                v_m, spiked = controller.update(self.dt)
+                v_ms[i] = v_m
+                spikes[i] = spiked
                 if spiked:
                     for target, weight in enumerate(self.connectome[i]):
                         if np.absolute(weight) >= 1e-3:
@@ -277,6 +279,8 @@ class GameController:
                     if self.wait_for_key >= 0:
                         self.controllers[self.wait_for_key].reset_add_key()
                     self.wait_for_key = i
+        if not self.is_paused:
+            self.plotView.update(self.current_time, v_ms, spikes)
         if found_waiting < 0 <= self.wait_for_key:
             self.wait_for_key = -1
         self.show_pause()
@@ -284,29 +288,27 @@ class GameController:
             self.current_time += self.dt
         return 0 < self.simulation_duration <= self.current_time
 
-    def grid(self, rows, columns):
-        for controller, row, column in zip(self.controllers, rows, columns, strict=False):
-            sticky = "nsw" if column == 0 else "nse"
-            controller.grid(row=row, column=column, sticky=sticky)
+    def grid(self):
+        for i, controller in enumerate(self.controllers):
+            controller.grid(sticky="nsw" if i == 0 else "nse")
 
     def show_pause(self):
         if self.is_paused:
-            self.time_label.config(text="PAUSE")
-            if self.simulation_duration <= 0.0 or self.current_time <= self.dt:
-                sticky = {} if len(self.controllers) <= 1 else {"sticky": "s"}
+            if not self.pause_frame.winfo_viewable():
+                self.time_label.config(text="PAUSE")
+                sticky = {} if len(self.controllers) <= 1 else {"sticky": "n"}
                 self.pause_frame.grid(
                     row=0,
                     column=0,
-                    rowspan=1,
-                    columnspan=2,
                     **sticky,
                 )
         else:
-            self.time_label.config(
-                text=f"Time left\n{(self.simulation_duration - self.current_time):.1f}"
-            )
             if self.simulation_duration <= 0.0:
                 self.pause_frame.grid_forget()
+            else:
+                self.time_label.config(
+                    text=f"Time left\n{(self.simulation_duration - self.current_time):.1f}"
+                )
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()
