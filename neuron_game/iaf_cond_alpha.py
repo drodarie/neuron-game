@@ -6,8 +6,8 @@ DEFAULT_PARAMS = {
     "g_L": 16.667,
     "I_e": 0.0,
     "t_ref": 1.0,
-    "tau_syn_ex": 0.2,
-    "tau_syn_in": 2.0,
+    "tau_ex": 0.2,
+    "tau_in": 2.0,
     "E_ex": 0.0,
     "E_in": -85.0,
     "V_m": -70.0,
@@ -15,12 +15,25 @@ DEFAULT_PARAMS = {
     "V_th": -50.0,
     "dt": 0.1,
 }
+
+PARAMETERS_NAME = {
+    "C_m": "Membrane capacitance",
+    "E_L": "Leakage Potential",
+    "g_L": "Membrane conductance",
+    "tau_ex": "Excitatory input time constant",
+    "tau_in": "Inhibitory input time constant",
+    "E_ex": "Excitatory Input Reverse potential",
+    "E_in": "Inhibitory Input Reverse potential",
+    "V_reset": "Membrane potential after spike reset value",
+    "V_th": "Membrane potential piking threshold",
+}
+
 RANGES = {
     "C_m": [200.0, 300.0],
     "E_L": [-75.0, -55.0],
     "g_L": [10, 20.0],
-    "tau_syn_ex": [0.1, 1.1],
-    "tau_syn_in": [1.0, 3.0],
+    "tau_ex": [0.1, 1.1],
+    "tau_in": [1.0, 3.0],
     "E_ex": [0.0, 2.0],
     "E_in": [-90.0, -75.0],
     "V_reset": [-85.0, -65.0],
@@ -37,8 +50,8 @@ class IAFCondAlpha:
         self._test_params(new_params)
         for param in DEFAULT_PARAMS:
             self.__setattr__(param, new_params[param])
-        self.pse_factor = np.exp(1) / self.tau_syn_ex
-        self.psi_factor = np.exp(1) / self.tau_syn_in
+        self.pse_factor = np.exp(1) / self.tau_ex
+        self.psi_factor = np.exp(1) / self.tau_in
         self.refractory = 0
 
     def init_buffers(self, max_delay):
@@ -52,8 +65,8 @@ class IAFCondAlpha:
         assert params["g_L"] > 0.0
         assert params["dt"] > 0.0
         assert params["t_ref"] >= params["dt"]
-        assert params["tau_syn_ex"] > 0.0
-        assert params["tau_syn_in"] > 0.0
+        assert params["tau_ex"] > 0.0
+        assert params["tau_in"] > 0.0
 
     def update_v_m(self):
         tau = self.C_m / self.g_L
@@ -65,13 +78,13 @@ class IAFCondAlpha:
         I_syn = self.neuron_state[2] * (self.V_m - self.E_ex) + self.neuron_state[3] * (
             self.V_m - self.E_in
         )
-        self.neuron_state[0] -= self.neuron_state[0] / self.tau_syn_ex * self.dt
-        self.neuron_state[1] -= self.neuron_state[1] / self.tau_syn_in * self.dt
+        self.neuron_state[0] -= self.neuron_state[0] / self.tau_ex * self.dt
+        self.neuron_state[1] -= self.neuron_state[1] / self.tau_in * self.dt
         self.neuron_state[2] += (
-            self.neuron_state[0] - self.neuron_state[2] / self.tau_syn_ex
+            self.neuron_state[0] - self.neuron_state[2] / self.tau_ex
         ) * self.dt
         self.neuron_state[3] += (
-            self.neuron_state[1] - self.neuron_state[3] / self.tau_syn_in
+            self.neuron_state[1] - self.neuron_state[3] / self.tau_in
         ) * self.dt
         return I_syn
 
@@ -105,8 +118,8 @@ class IAFCondAlpha:
             "C_m": self.C_m,
             "E_L": self.E_L,
             "g_L": self.g_L,
-            "tau_syn_ex": self.tau_syn_ex,
-            "tau_syn_in": self.tau_syn_in,
+            "tau_ex": self.tau_ex,
+            "tau_in": self.tau_in,
             "E_ex": self.E_ex,
             "E_in": self.E_in,
             "V_reset": self.V_reset,

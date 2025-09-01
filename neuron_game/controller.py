@@ -7,7 +7,7 @@ from uuid import uuid4
 import numpy as np
 
 from neuron_game.display import EXCITATORY_BLUE, INHIBITORY_RED, PlotDisplay
-from neuron_game.iaf_cond_alpha import RANGES, IAFCondAlpha
+from neuron_game.iaf_cond_alpha import PARAMETERS_NAME, RANGES, IAFCondAlpha
 
 
 class InputController:
@@ -69,8 +69,17 @@ class NeuronParams:
         self.observer = observer
 
         self.params_button = []
+        self.labels = []
+        self.tips = []
+        loc_root = root
+        while loc_root.master.master is not None:
+            loc_root = loc_root.master
+
         for i, (k, v) in enumerate(params.items()):
-            l_ = Label(root, text=k)
+            self.labels.append(Label(root, text=k))
+            self.tips.append(Label(loc_root, text=PARAMETERS_NAME[k], bg="yellow"))
+            self.labels[-1].bind("<Enter>", partial(self.show_tip, tip=self.tips[-1]))
+            self.labels[-1].bind("<Leave>", partial(self.hide_tip, tip=self.tips[-1]))
             self.params_button.append(
                 Scale(
                     root,
@@ -83,10 +92,23 @@ class NeuronParams:
                 )
             )
             self.params_button[-1].set(v)
-            l_.grid(column=(i * 2) % 6, row=i // 3, padx=0, pady=5, sticky="se")
+            self.labels[-1].grid(column=(i * 2) % 6, row=i // 3, padx=0, pady=5, sticky="se")
             self.params_button[-1].grid(
-                column=(i * 2) % 6 + 1, row=i // 3, padx=5, pady=5, sticky="nw"
+                column=(i * 2) % 6 + 1, row=i // 3, padx=(0, 10), pady=5, sticky="nw"
             )
+
+    def show_tip(self, event, tip):
+        root = event.widget.master
+        while root.master is not None:
+            root = root.master
+        tip.place(
+            x=event.x_root - tip.master.winfo_rootx(),
+            y=event.y_root - tip.master.winfo_rooty(),
+        )
+        tip.tkraise()
+
+    def hide_tip(self, event, tip):
+        tip.place_forget()
 
     def slider_changed(self, key, slider):
         self.observer.change_params(key, float(slider))
@@ -196,6 +218,7 @@ class NeuronController:
         self.controllerView.grid(sticky=sticky)  # make frame container sticky
         self.controllerView.rowconfigure(0, weight=1)  # make canvas expandable
         self.controllerView.columnconfigure(0, weight=1)
+        self.controllerView.columnconfigure(1, weight=2)
         if hasattr(self, "paramsView"):
             self.paramsView.grid(row=0, column=1, sticky=sticky)  # make frame container sticky
         if hasattr(self, "buttonsView"):
