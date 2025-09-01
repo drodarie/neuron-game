@@ -10,66 +10,101 @@ from neuron_game.iaf_cond_alpha import IAFCondAlpha
 
 class Panel:
     def __init__(self, root, nb_frames=1):
-        self.root = root
+        self._root = root
+        self.root = Frame(root)
+        self.root.grid(row=0, column=0, sticky="nsew")
+        self.root.rowconfigure(0, weight=1)
+        self.root.columnconfigure(0, weight=1)
         self.frames = [Frame(self.root) for _ in range(nb_frames)]
         for i, frame in enumerate(self.frames):
             frame.grid(row=i, column=0)
-        self.controller = None
         self.has_quit = False
 
     def cleanup(self):
-        self.root.unbind("<Key>")
-        for frame in self.frames:
-            frame.grid_forget()
-            frame.destroy()
+        self.root.grid_forget()
+        self.root.destroy()
+
+    def update(self):
+        if not self.has_quit:
+            self._root.after(5, self.update)
+
+    def start(self):
+        self.update()
+
+
+class NeuronPanel(Panel):
+    def __init__(
+        self,
+        root,
+        titles: list[str] = None,
+        display_control: list[bool] = None,
+        display_parameters=True,
+        save_values=False,
+        simulation_duration: float = -1.0,
+        start_paused: bool = False,
+    ):
+        if titles is None:
+            titles = ["Neuron membrane potential"]
+        super().__init__(root, len(titles))
+        if display_control is None:
+            display_control = [True]
+        assert len(titles) > 0 and len(titles) == len(display_control)
+        nb_neurons = len(titles)
+
+        # model
+        self.neurons = [IAFCondAlpha() for _ in range(nb_neurons)]
+        self.connectome = np.zeros((nb_neurons, nb_neurons), dtype=float)
+
+        # view
+        self.canvases = [
+            PlotDisplay(self.frames[i // 2], origin_value=neuron.V_m, ylims=[-90, -30], title=title)
+            for i, (neuron, title) in enumerate(zip(self.neurons, titles, strict=False))
+        ]
+        self.controller = GameController(
+            self.canvases,
+            self.neurons,
+            display_parameters=[display_parameters] * len(self.neurons),
+            display_controls=display_control,
+            connectome=self.connectome,
+            save_values=save_values,
+            simulation_duration=simulation_duration,  # in ms
+            start_paused=start_paused,
+        )
+
+    def start(self):
+        self.controller.grid()
+        self._root.bind("<Key>", self.controller._keystroke)
+        super().start()
 
     def update(self):
         done = False
         if not self.has_quit:
-            if self.controller is not None:
-                done = self.controller.update()
+            done = self.controller.update()
             if not done:
-                self.root.after(5, self.update)
+                super().update()
         return done
 
-    def start(self):
-        if self.controller is not None:
-            self.root.bind("<Key>", self.controller._keystroke)
-        self.update()
+    def cleanup(self):
+        super().cleanup()
+        self._root.unbind("<Key>")
 
 
-class MultiplayerGame(Panel):
+class MultiplayerGame(NeuronPanel):
     def __init__(self, root):
-        super().__init__(root, 2)
-        nb_neuron = 3
-        self.neurons = [IAFCondAlpha() for _ in range(nb_neuron)]
-        titles = ["Excitatory neuron", "Inhibitory neuron", "Target neuron"]
-        self.canvases = []
-        for i, (neuron, title) in enumerate(zip(self.neurons, titles, strict=False)):
-            loc_root = self.frames[0]
-            if i == len(self.neurons) - 1:
-                loc_root = self.frames[1]
-            self.canvases.append(
-                PlotDisplay(loc_root, origin_value=neuron.V_m, ylims=[-90, -30], title=title)
-            )
-
+        super().__init__(
+            root,
+            ["Excitatory neuron", "Inhibitory neuron", "Target neuron"],
+            display_control=[True, True, False],
+            display_parameters=False,
+            save_values=True,
+            simulation_duration=50.0,
+            start_paused=True,
+        )
         self.side_canvases = [Canvas(self.frames[1]) for _ in range(2)]
         self._side_display()
 
-        connectome = np.zeros((nb_neuron, nb_neuron), dtype=float)
-        connectome[0][2] = 100.0
-        connectome[1][2] = -100.0
-        self.controller = GameController(
-            self.canvases,
-            self.neurons,
-            display_parameters=[False] * len(self.neurons),
-            display_controls=[True, True, False],
-            connectome=connectome,
-            save_values=True,
-            simulation_duration=50.0,  # in ms
-            start_paused=True,
-        )
-        self.controller.grid(rows=[0] * nb_neuron, columns=[0, 1, 1])
+        self.connectome[0][2] = 100.0
+        self.connectome[1][2] = -100.0
 
     def _side_display(self):
         self.side_canvases[0].grid(row=0, column=0, sticky="n")
@@ -99,33 +134,23 @@ class MultiplayerGame(Panel):
             return True
 
 
-class SingleExploration(Panel):
+class SingleExploration(NeuronPanel):
     def __init__(self, root):
-        super().__init__(root, 2)
-        self.neuron = IAFCondAlpha()
-        self.canvas = PlotDisplay(
-            self.frames[0],
-            origin_value=self.neuron.V_m,
-            ylims=[-90, -30],
-            title="Neuron membrane potential",
-        )
-        self.controller = GameController(
-            [self.canvas],
-            [self.neuron],
-        )
-        self.controller.grid(rows=[0], columns=[0])
+        super().__init__(root)
+        self.frames.append(Frame(self.root))
         self.quit_button = Button(
-            self.frames[1],
+            self.frames[-1],
             padx=6,
             # bg=color,
             text="Return to main menu",
             command=self.quit,
         )
+        self.frames[-1].grid(row=1, column=0, sticky="n")
         self.quit_button.grid(column=0, row=0, padx=10, pady=10, sticky="n")
 
     def quit(self):
-        self.cleanup()
         self.has_quit = True
+        self.cleanup()
         self.root.quit()
 
 
@@ -162,18 +187,17 @@ class NeuronGame:
         self.root.title("Neuron Game")
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        self.root.rowconfigure(1, weight=7)
+        self.root.protocol("WM_DELETE_WINDOW", self.cleanup)
         self.current_display = None
         self.stopped = False
-        self.root.protocol("WM_DELETE_WINDOW", self.cleanup)
 
         current_choice = None
         while not self.stopped:
             if current_choice is None:
-                self.root.geometry("960x570")
+                self.root.geometry("960x620")
                 self.current_display = MainMenu(self.root)
             elif current_choice:
-                self.root.geometry("1920x1080")
+                self.root.geometry("1920x1075")
                 self.current_display = MultiplayerGame(self.root)
             else:
                 self.root.geometry("960x620")

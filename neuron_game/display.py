@@ -54,11 +54,11 @@ class PlotDisplay:
         self.line.set_xdata(displayed_x)
         self.line.set_ydata(np.roll(self.y, -buffer_idx - 1))
         if spike:
-            line = self.ax.axvline(x=t, linewidth=2.0, color="red")
-            self.spikes.append((t, line))
+            vline = self.ax.axvline(x=t, linewidth=2.0, color="red")
+            self.spikes.append((t, vline))
         self.ax.set_xlim([displayed_x[0], t + self.points_displayed * self.dt])
         if len(self.spikes) > 0 and self.spikes[0][0] < displayed_x[0]:
-            _, line = self.spikes.pop(0)
-            line.remove()
+            _, vline = self.spikes.pop(0)
+            vline.remove()
 
         self.canvas.draw()

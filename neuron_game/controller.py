@@ -82,7 +82,7 @@ class NeuronParams:
                 )
             )
             self.params_button[-1].set(v)
-            l_.grid(column=(i * 2) % 6, row=i // 3, padx=0, pady=5, sticky="sw")
+            l_.grid(column=(i * 2) % 6, row=i // 3, padx=0, pady=5, sticky="se")
             self.params_button[-1].grid(
                 column=(i * 2) % 6 + 1, row=i // 3, padx=5, pady=5, sticky="nw"
             )
@@ -284,15 +284,15 @@ class GameController:
             self.current_time += self.dt
         return 0 < self.simulation_duration <= self.current_time
 
-    def grid(self, rows, columns):
-        for controller, row, column in zip(self.controllers, rows, columns, strict=False):
-            sticky = "nsw" if column == 0 else "nse"
-            controller.grid(row=row, column=column, sticky=sticky)
+    def grid(self):
+        for i, controller in enumerate(self.controllers):
+            column = 1 if i > 0 and i == len(self.controllers) - 1 else i % 2
+            controller.grid(row=0, column=column, sticky="nsw" if i == 0 else "nse")
 
     def show_pause(self):
         if self.is_paused:
-            self.time_label.config(text="PAUSE")
-            if self.simulation_duration <= 0.0 or self.current_time <= self.dt:
+            if not self.pause_frame.winfo_viewable():
+                self.time_label.config(text="PAUSE")
                 sticky = {} if len(self.controllers) <= 1 else {"sticky": "s"}
                 self.pause_frame.grid(
                     row=0,
@@ -302,11 +302,12 @@ class GameController:
                     **sticky,
                 )
         else:
-            self.time_label.config(
-                text=f"Time left\n{(self.simulation_duration - self.current_time):.1f}"
-            )
             if self.simulation_duration <= 0.0:
                 self.pause_frame.grid_forget()
+            else:
+                self.time_label.config(
+                    text=f"Time left\n{(self.simulation_duration - self.current_time):.1f}"
+                )
 
     def _keystroke(self, event):
         key_stroke = event.char.upper()
