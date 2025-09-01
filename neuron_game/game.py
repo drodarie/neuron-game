@@ -114,7 +114,7 @@ class MultiplayerGame(NeuronPanel):
             display_parameters=False,
             colors=self.colors,
             save_values=True,
-            simulation_duration=50.0,
+            simulation_duration=30.0,
             start_paused=True,
         )
         self.side_canvases = [Canvas(self.frames[1]) for _ in range(2)]
@@ -122,6 +122,9 @@ class MultiplayerGame(NeuronPanel):
 
         self.connectome[0][2] = 100.0
         self.connectome[1][2] = -100.0
+        self.neurons[-1].V_reset = self.neurons[-1].E_L
+        self.neurons[-1].tau_in = self.neurons[-1].tau_ex
+        self.neurons[-1].E_in = 2 * self.neurons[-1].E_L - self.neurons[-1].E_ex
         self.show_results = False
 
     def _side_display(self):

@@ -327,8 +327,9 @@ class GameController:
 
     def show_pause(self):
         if self.is_paused:
-            if not self.pause_frame.winfo_viewable():
+            if self.time_label.config()["text"][-1] != "PAUSE":
                 self.time_label.config(text="PAUSE")
+            if not self.pause_frame.winfo_viewable():
                 sticky = {} if len(self.controllers) <= 1 else {"sticky": "s"}
                 self.pause_frame.grid(
                     row=0,

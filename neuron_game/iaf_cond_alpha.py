@@ -50,9 +50,15 @@ class IAFCondAlpha:
         self._test_params(new_params)
         for param in DEFAULT_PARAMS:
             self.__setattr__(param, new_params[param])
-        self.pse_factor = np.exp(1) / self.tau_ex
-        self.psi_factor = np.exp(1) / self.tau_in
         self.refractory = 0
+
+    @property
+    def pse_factor(self):
+        return np.exp(1) / self.tau_ex
+
+    @property
+    def psi_factor(self):
+        return np.exp(1) / self.tau_in
 
     def init_buffers(self, max_delay):
         self.size_buffer = int(max_delay / self.dt + 1)
