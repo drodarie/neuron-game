@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import numpy as np
 
-from neuron_game.display import PlotDisplay
+from neuron_game.display import EXCITATORY_BLUE, INHIBITORY_RED, PlotDisplay
 from neuron_game.iaf_cond_alpha import RANGES, IAFCondAlpha
 
 
@@ -58,8 +58,9 @@ class InputController:
         self.control_button.config(relief=SUNKEN if self.wait_for_key else RAISED)
 
     def _delay_button_raise(self):
-        self.stim_button.config(relief=RAISED)
-        self.pressed = False
+        if self.pressed:
+            self.stim_button.config(relief=RAISED)
+            self.pressed = False
 
 
 class NeuronParams:
@@ -123,7 +124,7 @@ class NeuronController:
                 for i, (text, color, weight) in enumerate(
                     zip(
                         ["Excitatory", "Inhibitory"],
-                        ["#add8e6", "#f1807e"],
+                        [EXCITATORY_BLUE, INHIBITORY_RED],
                         [excitatory_weight, inhibitory_weight],
                         strict=False,
                     )
@@ -137,9 +138,10 @@ class NeuronController:
 
         self.wait_for_key = -1
 
-    def __del__(self):
+    def remove_files(self):
         if self.save_values and exists(self.save_file):
             remove(self.save_file)
+            self.save_values = False
 
     def update(self, dt: float):
         spiked = self.neuron.update(self.current_time)
@@ -169,8 +171,9 @@ class NeuronController:
         self.wait_for_key = -1
 
     def reset_add_key(self):
-        self.stim_controllers[self.wait_for_key].end_wait_for_key()
-        self.wait_for_key = -1
+        if self.wait_for_key >= 0:
+            self.stim_controllers[self.wait_for_key].end_wait_for_key()
+            self.wait_for_key = -1
 
     def strike(self, key):
         for controller in self.stim_controllers:
@@ -260,6 +263,11 @@ class GameController:
         self.wait_for_key = -1
         self.keys = {}
 
+    def cleanup(self):
+        self.reset_wait_for_key()
+        for controller in self.controllers:
+            controller.remove_files()
+
     def update(self):
         found_waiting = -1
         for i, controller in enumerate(self.controllers):
@@ -288,6 +296,11 @@ class GameController:
         for i, controller in enumerate(self.controllers):
             column = 1 if i > 0 and i == len(self.controllers) - 1 else i % 2
             controller.grid(row=0, column=column, sticky="nsw" if i == 0 else "nse")
+
+    def reset_wait_for_key(self):
+        self.wait_for_key = -1
+        for controller in self.controllers:
+            controller.reset_add_key()
 
     def show_pause(self):
         if self.is_paused:

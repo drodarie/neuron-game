@@ -1,8 +1,13 @@
+from os.path import isfile
 from tkinter import Frame
 
 import numpy as np
 from matplotlib import pylab as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+EXCITATORY_BLUE = "#add8e6"
+INHIBITORY_RED = "#f1807e"
+SPIKE_COLOR = "limegreen"
 
 
 class PlotDisplay:
@@ -26,6 +31,7 @@ class PlotDisplay:
         self.ax.set_xlim([self.x[0], self.x[-1] + self.points_displayed * dt])
         plt.setp(self.ax.get_xticklabels(), ha="right")
         self.ax.set_ylabel(ylabel)
+        self.ax.set_xlabel("Time (ms)")
         self.ax.set_title(title)
         if ylims is not None:
             self.ax.set_ylim(ylims)
@@ -54,7 +60,7 @@ class PlotDisplay:
         self.line.set_xdata(displayed_x)
         self.line.set_ydata(np.roll(self.y, -buffer_idx - 1))
         if spike:
-            vline = self.ax.axvline(x=t, linewidth=2.0, color="red")
+            vline = self.ax.axvline(x=t, linewidth=2.0, color=SPIKE_COLOR)
             self.spikes.append((t, vline))
         self.ax.set_xlim([displayed_x[0], t + self.points_displayed * self.dt])
         if len(self.spikes) > 0 and self.spikes[0][0] < displayed_x[0]:
@@ -62,3 +68,67 @@ class PlotDisplay:
             vline.remove()
 
         self.canvas.draw()
+
+
+class ResultsDisplay:
+    def __init__(
+        self,
+        placeholder,
+        filenames: list[str],
+        threshold: float,
+        ylims: list[float] = None,
+        colors=None,
+        ylabel="Membrane potential (mV)",
+        titles=None,
+    ):
+        if titles is None:
+            titles = ["Neuron"]
+        if colors is None:
+            colors = ["blue"]
+        assert len(filenames) > 0
+        assert len(filenames) == len(colors) == len(titles)
+        for filename in filenames:
+            assert isfile(filename)
+
+        self.figure, self.axes = plt.subplots(
+            len(filenames), 1, figsize=(9.7, 6), sharex=True, sharey=True
+        )
+        self.means = np.zeros(len(filenames))
+        for i, (ax, filename, title, color) in enumerate(
+            zip(self.axes, filenames, titles, colors, strict=False)
+        ):
+            with open(filename) as f:
+                lines = f.readlines()
+                x = np.zeros(len(lines))
+                y = np.zeros(len(lines))
+                for j, line in enumerate(lines):
+                    t, v_m = line.split("\t")
+                    x[j] = float(t)
+                    y[j] = float(v_m)
+                self.means[i] = np.mean(y)
+            spikes = np.where(np.array(y) >= threshold)[0]
+            ax.plot(x, y, color=color, linewidth=2.0)
+            for spike in spikes:
+                ax.axvline(x=x[spike], linewidth=2.0, color=SPIKE_COLOR)
+            ax.set_ylabel(ylabel)
+            ax.set_xlabel("Time (ms)")
+            ax.set_title(title)
+        if ylims is not None:
+            self.axes[0].set_ylim(ylims)
+        self.axes[0].set_xlim([0, x[-1]])
+        self.figure.suptitle("Simulation results", fontsize=20)
+        self.figure.set_tight_layout(True)
+        self.frame = Frame(placeholder)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.frame)
+
+    def grid(self, **kw):
+        """
+        Put CanvasImage widget on the parent widget
+        """
+        self.frame.grid(**kw)  # place CanvasImage widget on the grid
+        self.frame.grid(sticky="nswe")  # make frame container sticky
+        self.frame.rowconfigure(0, weight=1)  # make canvas expandable
+        self.frame.columnconfigure(0, weight=1)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nwe")
+        self.canvas.get_tk_widget().rowconfigure(0, weight=1)
+        self.canvas.get_tk_widget().columnconfigure(0, weight=1)

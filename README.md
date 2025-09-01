@@ -32,7 +32,7 @@ python neuron_game/game.py
 ## Context
 In this game, we simulate neurons as integrate and fire point-neurons and display their membrane potential in a plot.  
 The plots are automatically updated according to time. Simulation can be paused pressing the `spacebar` button.  
-Each neuron's spike events are highlighted with red vertical lines.  
+Each neuron's spike events are highlighted with light green vertical lines.  
 
 Players can interact with neurons by sending either an excitatory or inhibitory input.  
 These inputs can be sent using the corresponding buttons displayed or by linking one (or more) key to each input type.
