@@ -171,6 +171,13 @@ class MultiplayerGame(NeuronPanel):
         self.canvases[0].grid(row=0, column=0, sticky="nsew")
         result_text = f"Mean {self.titles[-1]} V_m: {self.canvases[0].means[-1]:.2f} mV"
         label_results = Label(self.frames[-1], text=result_text, font=("Arial", 15), justify=LEFT)
+        winner = 1 if self.canvases[0].means[-1] > self.neurons[-1].E_L else 2
+        winner_label = Label(
+            self.frames[-1],
+            text=f"The winner is player {winner}!",
+            font=("Arial", 15),
+            justify=LEFT,
+        )
         quit_button = Button(
             self.frames[-1],
             padx=6,
@@ -179,10 +186,11 @@ class MultiplayerGame(NeuronPanel):
             command=self.quit,
         )
         self.frames[-1].grid(row=1, column=0, sticky="nswe")
-        self.frames[-1].rowconfigure(0, weight=1)
+        self.frames[-1].rowconfigure(2, weight=1)
         self.frames[-1].columnconfigure(0, weight=1)
         label_results.grid(row=0, column=0, sticky="nwe")
-        quit_button.grid(column=0, row=1, padx=10, pady=10, sticky="n")
+        winner_label.grid(row=1, column=0, sticky="nwe")
+        quit_button.grid(column=0, row=2, padx=10, pady=10, sticky="n")
         self.show_results = True
 
     def update(self):
