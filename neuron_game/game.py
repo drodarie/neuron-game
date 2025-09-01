@@ -232,6 +232,12 @@ class SingleExploration(NeuronPanel):
 class MainMenu(Panel):
     def __init__(self, root):
         super().__init__(root)
+        self.title = Label(
+            self.frames[0],
+            text="Neuron Simulation Game",
+            font=("Arial", 40),
+            justify=LEFT,
+        )
         self.single_button = Button(
             self.frames[0],
             padx=6,
@@ -253,9 +259,10 @@ class MainMenu(Panel):
             text="Quit the game",
             command=partial(self.choose_game, 2),
         )
-        self.single_button.grid(column=0, row=0, padx=10, pady=10)
-        self.multi_button.grid(column=0, row=1, padx=10, pady=10)
-        self.quit_button.grid(column=0, row=2, padx=10, pady=10)
+        self.title.grid(column=0, row=0, padx=10, pady=50)
+        self.single_button.grid(column=0, row=1, padx=10, pady=10)
+        self.multi_button.grid(column=0, row=2, padx=10, pady=10)
+        self.quit_button.grid(column=0, row=3, padx=10, pady=10)
         self.choice = None
 
     def choose_game(self, choice):
@@ -267,7 +274,7 @@ class MainMenu(Panel):
 class NeuronGame:
     def __init__(self):
         self.root = Tk()
-        self.root.title("Neuron Game")
+        self.root.title("Neuron Simulation Game")
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         self.root.protocol("WM_DELETE_WINDOW", self.cleanup)
