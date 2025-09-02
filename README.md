@@ -1,4 +1,4 @@
-# Simulation game for point-neurons 
+# Simulation game of point-neurons 
 
 This educational game should help players to understand neuron electrical activity through simulation.
 
