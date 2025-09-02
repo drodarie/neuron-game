@@ -38,7 +38,7 @@ class NeuronPanel(Panel):
         root,
         titles: list[str] = None,
         colors: list[str] = None,
-        display_control: list[bool] = None,
+        display_control: list[int] = None,
         display_parameters=True,
         save_values=False,
         simulation_duration: float = -1.0,
@@ -50,7 +50,7 @@ class NeuronPanel(Panel):
             colors = ["blue"]
         super().__init__(root, len(titles))
         if display_control is None:
-            display_control = [True]
+            display_control = [1]
         assert (
             len(titles) > 0 and len(titles) == len(display_control) and len(titles) == len(colors)
         )
@@ -98,9 +98,9 @@ class NeuronPanel(Panel):
         return done
 
     def cleanup(self):
-        super().cleanup()
         self._root.unbind("<Key>")
         self.controller.cleanup()
+        super().cleanup()
 
 
 class MultiplayerGame(NeuronPanel):
@@ -110,7 +110,7 @@ class MultiplayerGame(NeuronPanel):
         super().__init__(
             root,
             self.titles,
-            display_control=[True, True, False],
+            display_control=[2, 2, 0],
             display_parameters=False,
             colors=self.colors,
             save_values=True,

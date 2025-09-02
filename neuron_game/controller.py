@@ -1,3 +1,5 @@
+import random
+import string
 from functools import partial
 from os import remove
 from os.path import abspath, dirname, exists, join
@@ -8,6 +10,8 @@ import numpy as np
 
 from neuron_game.display import EXCITATORY_BLUE, INHIBITORY_RED, PlotDisplay
 from neuron_game.iaf_cond_alpha import PARAMETERS_NAME, RANGES, IAFCondAlpha
+
+KEYS_TAKEN = set()
 
 
 class InputController:
@@ -21,6 +25,31 @@ class InputController:
             text=button_text,
             command=self.stim_input,
         )
+        self.stim_button.grid(
+            column=column, row=0, padx=10, pady=10, sticky="nw" if column == 0 else "ne"
+        )
+        self.weight = weight
+        self.delay = delay
+        self.observer = observer
+
+    def stim_input(self):
+        if not self.pressed:
+            self.pressed = True
+            self.stim_button.config(relief=SUNKEN)
+            self.observer.receive_spike(self.weight, self.delay)
+
+    def _delay_button_raise(self):
+        if self.pressed:
+            self.stim_button.config(relief=RAISED)
+            self.pressed = False
+
+    def end_wait_for_key(self):
+        self.wait_for_key = False
+
+
+class MultiInputController(InputController):
+    def __init__(self, root, button_text, color, column, weight, delay, observer):
+        super().__init__(root, button_text, color, column, weight, delay, observer)
         self.control_button = Button(
             root,
             padx=6,
@@ -30,19 +59,9 @@ class InputController:
         )
         sticky = "nw" if column == 0 else "ne"
         self.text = Label(root, width=24, height=3, anchor=sticky, justify=LEFT)
-        self.stim_button.grid(column=column, row=0, padx=10, pady=10, sticky=sticky)
         self.control_button.grid(column=column, row=1, padx=10, pady=10, sticky=sticky)
         self.text.grid(column=column, row=2, padx=10, sticky=sticky)
-        self.weight = weight
-        self.delay = delay
-        self.observer = observer
         self.keys = []
-
-    def stim_input(self):
-        if not self.pressed:
-            self.pressed = True
-            self.stim_button.config(relief=SUNKEN)
-            self.observer.receive_spike(self.weight, self.delay)
 
     def add_key(self, key):
         self.keys.append(key)
@@ -50,17 +69,37 @@ class InputController:
         self.end_wait_for_key()
 
     def end_wait_for_key(self):
+        super().end_wait_for_key()
         self.control_button.config(relief=RAISED)
-        self.wait_for_key = False
 
     def add_control(self):
         self.wait_for_key = not self.wait_for_key
         self.control_button.config(relief=SUNKEN if self.wait_for_key else RAISED)
 
-    def _delay_button_raise(self):
-        if self.pressed:
-            self.stim_button.config(relief=RAISED)
-            self.pressed = False
+
+class RandomInputController(InputController):
+    def __init__(self, root, color, column, weight, delay, observer):
+        super().__init__(root, "", color, column + 1, weight, delay, observer)
+        self.stim_button.config(font=("Arial", 30, "bold"))
+        self.text = Label(root, width=24, height=3, justify=LEFT, text="Stimulate with:")
+        self.text.grid(column=column, row=0, padx=0, sticky="w")
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_columnconfigure(1, weight=2)
+        self.wait_for_key = True
+        self.keys = []
+
+    def select_random_key(self):
+        selection = random.choice(string.ascii_letters).upper()
+        while selection in KEYS_TAKEN:
+            selection = random.choice(string.ascii_letters).upper()
+        if len(self.keys) > 0:
+            old_key = self.keys.pop(0)
+            KEYS_TAKEN.remove(old_key)
+        self.keys.append(selection)
+        KEYS_TAKEN.add(selection)
+        self.stim_button.config(text=selection)
+        self.wait_for_key = False
+        return selection
 
 
 class NeuronParams:
@@ -124,7 +163,7 @@ class NeuronController:
         inhibitory_weight: float = -100.0,
         syn_delay: float = 0.1,
         display_parameters: bool = False,
-        display_controls: bool = False,
+        display_controls: int = 0,
         save_values: bool = False,
     ):
         assert syn_delay > 0
@@ -135,12 +174,13 @@ class NeuronController:
         self.plotView = view
         self.controllerView = Frame(view.frame, relief=RIDGE, borderwidth=2)
         self.save_values = save_values
+        self.keys = []
         if self.save_values:
             self.save_file = join(dirname(dirname(abspath(__file__))), f"vm_{uuid4()}.txt")
-        if display_controls:
+        if display_controls == 1:
             self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
             self.stim_controllers = [
-                InputController(
+                MultiInputController(
                     self.buttonsView, f"{text} Input", color, i, weight, syn_delay, self
                 )
                 for i, (text, color, weight) in enumerate(
@@ -150,6 +190,13 @@ class NeuronController:
                         [excitatory_weight, inhibitory_weight],
                         strict=False,
                     )
+                )
+            ]
+        elif display_controls == 2:
+            self.buttonsView = Frame(self.controllerView, relief=RIDGE, borderwidth=2)
+            self.stim_controllers = [
+                RandomInputController(
+                    self.buttonsView, EXCITATORY_BLUE, 0, excitatory_weight, syn_delay, self
                 )
             ]
         else:
@@ -171,31 +218,37 @@ class NeuronController:
             with open(self.save_file, "a") as f:
                 f.write(f"{self.current_time}\t{self.neuron.V_m}\n")
         self.plotView.update(self.current_time, self.neuron.V_m, spike=spiked)
-        self.update_keys()
+        self.update_keys(spiked)
         self.current_time += dt
         return spiked
 
-    def update_keys(self):
+    def update_keys(self, spiked=False):
         found_waiting = -1
         for i, controller in enumerate(self.stim_controllers):
             controller._delay_button_raise()
             if controller.wait_for_key:
                 found_waiting = i
-                if self.wait_for_key < 0:
-                    self.wait_for_key = i
-                elif self.wait_for_key != i:
-                    controller.end_wait_for_key()
+                if isinstance(controller, RandomInputController):
+                    controller.select_random_key()
+                elif isinstance(controller, MultiInputController):
+                    if self.wait_for_key < 0:
+                        self.wait_for_key = i
+                    elif self.wait_for_key != i:
+                        controller.end_wait_for_key()
+            elif spiked and isinstance(controller, RandomInputController):
+                controller.wait_for_key = True
         if found_waiting < 0 <= self.wait_for_key:
             self.wait_for_key = -1
 
     def add_key(self, key):
         self.stim_controllers[self.wait_for_key].add_key(key)
+        KEYS_TAKEN.add(key)
         self.wait_for_key = -1
 
     def reset_add_key(self):
-        if self.wait_for_key >= 0:
-            self.stim_controllers[self.wait_for_key].end_wait_for_key()
-            self.wait_for_key = -1
+        self.wait_for_key = -1
+        for controller in self.stim_controllers:
+            controller.end_wait_for_key()
 
     def strike(self, key):
         for controller in self.stim_controllers:
@@ -231,7 +284,7 @@ class GameController:
         views: list[PlotDisplay],
         neurons: list[IAFCondAlpha],
         display_parameters: list[bool] = None,
-        display_controls: list[bool] = None,
+        display_controls: list[int] = None,
         connectome=None,
         save_values: bool = False,
         simulation_duration: float = -1.0,
@@ -240,10 +293,10 @@ class GameController:
         assert len(views) > 0
         assert len(views) == len(neurons)
         if display_controls is None:
-            display_parameters = [True] * len(neurons)
+            display_parameters = [1] * len(neurons)
         assert len(display_parameters) == len(neurons)
-        if display_controls is None:
-            display_controls = [True] * len(neurons)
+        if display_parameters is None:
+            display_parameters = [True] * len(neurons)
         assert len(display_controls) == len(neurons)
         if connectome is None:
             connectome = np.zeros((len(neurons), len(neurons)), dtype=float)
@@ -284,7 +337,6 @@ class GameController:
             self.time_label = Label(self.pause_frame, text="PAUSE", font=("Arial", 30, "bold"))
             self.time_label.pack(fill=BOTH, expand=True)
         self.wait_for_key = -1
-        self.keys = {}
 
     def cleanup(self):
         self.reset_wait_for_key()
@@ -352,9 +404,9 @@ class GameController:
             self.is_paused = not self.is_paused
         if not key_stroke.isalnum():
             return
-        if self.wait_for_key >= 0 and key_stroke not in self.keys:
-            self.keys[key_stroke] = self.wait_for_key
-            self.controllers[self.wait_for_key].add_key(key_stroke)
-            self.wait_for_key = -1
-        elif self.wait_for_key < 0 and not self.is_paused and key_stroke in self.keys:
-            self.controllers[self.keys[key_stroke]].strike(key_stroke)
+        for controller in self.controllers:
+            if controller.wait_for_key >= 0 and key_stroke not in KEYS_TAKEN:
+                self.controllers[self.wait_for_key].add_key(key_stroke)
+                self.wait_for_key = -1
+            elif controller.wait_for_key < 0 and not self.is_paused and key_stroke in KEYS_TAKEN:
+                controller.strike(key_stroke)
